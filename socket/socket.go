@@ -18,7 +18,7 @@ var udpSocket *net.UDPConn
 func Open() (int, error) {
 	assert.Assert(udpSocket == nil, "UDP socket is already initialized. Call Close() before calling Open() again.")
 
-	socket, err := net.ListenUDP("udp4", &net.UDPAddr{Port: 0})
+	socket, err := net.ListenUDP("udp", &net.UDPAddr{Port: 0})
 	if err != nil {
 		return 0, err
 	}
