@@ -1,31 +1,31 @@
 package main
 
 import (
+	"fmt"
 	"log"
+
+	"bjoernblessin.de/chatprotogol/cmd"
+	"bjoernblessin.de/chatprotogol/inputreader"
+	"bjoernblessin.de/chatprotogol/socket"
+	"bjoernblessin.de/chatprotogol/util/logger"
 )
 
 func main() {
 	log.Println("Running...")
 
-	// connManager := connection.NewConnectionManager()
+	reader := inputreader.NewInputReader()
 
-	// clientManager := clients.NewClientManager(connManager)
+	reader.AddHandler("connect", cmd.HandleConnect)
+	reader.AddHandler("disconnect", cmd.HandleDisconnect)
+	reader.AddHandler("send", cmd.HandleSend)
+	reader.AddHandler("sendfile", cmd.HandleSendFile)
 
-	// roomManager := rooms.NewRoomManager(clientManager)
+	port, err := socket.Open()
+	if err != nil {
+		logger.Errorf("Failed to open UDP socket: %v", err)
+	}
 
-	// streams.NewStreamManager(clientManager, roomManager)
+	fmt.Print("Listening on port: ", port, "\n")
 
-	// signaling.NewSignalingManager(clientManager)
-
-	// mux := http.NewServeMux()
-
-	// mux.HandleFunc("GET /room/{roomID}/connect", roomManager.HandleConnect)
-	// mux.HandleFunc("GET /room/generate-id", roomManager.GenerateIDHandler)
-
-	// server := &http.Server{
-	// 	Addr:    ":8080",
-	// 	Handler: middleware.Logging(middleware.CORS(mux)),
-	// }
-
-	// log.Fatal(server.ListenAndServe())
+	reader.InputLoop()
 }
