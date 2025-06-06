@@ -1,6 +1,6 @@
 package common
 
-const INITIAL_TTL = 10        // TTL for a new packet
+const INITIAL_TTL = 30        // TTL for a new packet
 const MAX_PAYLOAD_SIZE = 1200 // MTU in bytes after subtracting ALL headers (IP, UDP, ChatProto)
 const ACK_TIMEOUT_SECONDS = 5
 const RETRIES_PER_PACKET = 2

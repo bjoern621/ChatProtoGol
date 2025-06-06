@@ -9,9 +9,19 @@ import (
 	"bjoernblessin.de/chatprotogol/common"
 	"bjoernblessin.de/chatprotogol/util/assert"
 	"bjoernblessin.de/chatprotogol/util/logger"
+	"bjoernblessin.de/chatprotogol/util/observer"
 )
 
-var udpSocket *net.UDPConn
+var (
+	udpSocket        *net.UDPConn
+	packetObservable = observer.NewObservable[[]byte]()
+)
+
+// Subscribe registers an observer to receive packets from the UDP socket.
+// The observer will receive all packets that are received by the socket.
+func Subscribe() chan []byte {
+	return packetObservable.Subscribe()
+}
 
 // Open opens a UDP socket on all available network interfaces.
 // The local port is randomly choosen and returned.
@@ -40,6 +50,8 @@ func readLoop() {
 		}
 
 		log.Printf("[FROM %s %d bytes] %x", addr.String(), n, buffer[:n])
+
+		packetObservable.NotifyObservers(buffer[:n])
 	}
 }
 

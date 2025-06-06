@@ -1,11 +1,12 @@
 package cmd
 
 import (
-	"crypto/rand"
 	"fmt"
 	"net"
 	"strconv"
 
+	"bjoernblessin.de/chatprotogol/common"
+	"bjoernblessin.de/chatprotogol/protocol"
 	"bjoernblessin.de/chatprotogol/socket"
 )
 
@@ -18,7 +19,7 @@ func HandleConnect(args []string) {
 
 	hostIP := net.ParseIP(args[0])
 	if hostIP == nil {
-		fmt.Printf("Invalid IPv4 address: %s\n", args[0])
+		fmt.Printf("Invalid IP address: %s\n", args[0])
 		return
 	}
 
@@ -28,10 +29,27 @@ func HandleConnect(args []string) {
 		return
 	}
 
-	data := make([]byte, 9500)
-	rand.Read(data)
+	ipv4 := hostIP.To4()
+	if ipv4 == nil {
+		fmt.Printf("The provided IP address is not a valid IPv4 address: %s\n", args[0])
+		return
+	}
 
-	err = socket.SendTo(&net.UDPAddr{IP: hostIP, Port: port}, data)
+	packet := &protocol.Packet{
+		Header: protocol.Header{
+			SourceAddr: [4]byte{10, 0, 0, 1},
+			DestAddr:   [4]byte{ipv4[0], ipv4[1], ipv4[2], ipv4[3]},
+			Control:    protocol.MakeControlByte(protocol.MsgTypeConnect, true, common.TEAM_ID),
+			TTL:        common.INITIAL_TTL,
+			Checksum:   [2]byte{120, 255},
+			SeqNum:     [4]byte{0, 0, 0, 0},
+		},
+		Payload: []byte{},
+	}
+
+	fmt.Printf("Packet to send: %+v\n", packet)
+
+	err = socket.SendTo(&net.UDPAddr{IP: hostIP, Port: port}, packet.ToByteArray())
 	if err != nil {
 		fmt.Printf("Failed to send connect message: %v\n", err)
 		return

@@ -26,3 +26,8 @@ func Panicf(format string, v ...any) {
 	log.Panicf(fmt.Sprintf("[ERROR] %s", format), v...)
 	assert.Never()
 }
+
+// Infof prints an informational message prefixed with "[INFO] ".
+func Infof(format string, v ...any) {
+	log.Printf(fmt.Sprintf("[INFO] %s", format), v...)
+}

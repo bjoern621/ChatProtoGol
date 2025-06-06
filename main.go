@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"bjoernblessin.de/chatprotogol/cmd"
+	"bjoernblessin.de/chatprotogol/handler"
 	"bjoernblessin.de/chatprotogol/inputreader"
 	"bjoernblessin.de/chatprotogol/socket"
 	"bjoernblessin.de/chatprotogol/util/logger"
@@ -26,6 +27,8 @@ func main() {
 	}
 
 	fmt.Print("Listening on port: ", port, "\n")
+
+	handler.ListenToPackets()
 
 	reader.InputLoop()
 }
