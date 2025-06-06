@@ -1,42 +1,47 @@
 // Package routing manages directly connected hosts. It provides a way to deliver messages to these hosts.
 package routing
 
+import (
+	"net/netip"
+)
+
 type routeEntry struct {
 	HopCount int
 	NextHop  string // The IPv4 address of the next hop router
 }
 
 type RoutingTable struct {
-	Entries map[string]routeEntry // Maps IPv4 addresses to route entries
-}
-
-func newRoutingTable() RoutingTable {
-	return RoutingTable{
-		Entries: make(map[string]routeEntry),
-	}
+	Entries map[netip.Addr]routeEntry // Maps IPv4 addresses to route entries
 }
 
 // FormatForPayload formats the routing table for inclusion in a Routing Table Update Message.
 // Format:
 //
-//  +--------+--------+--------+--------+--------+
-//  |                                   |        |
-//  |   IPv4 Address of Destination     |  Hop   |
-//  |          (32 bits)                | Count  |
-//  |                                   |(8 bits)|
-//  +--------+--------+--------+--------+--------+
-//  |                                   |        |
-//  |   IPv4 Address of Destination     |  Hop   |
-//  |          (32 bits)                | Count  |
-//  |                                   |(8 bits)|
-//  +--------+--------+--------+--------+--------+
-//  |                                            |
-//  |                 ...                        |
-//  |                                            |
-//  +--------+--------+--------+--------+--------+
-//
+//	+--------+--------+--------+--------+--------+
+//	|                                   |        |
+//	|   IPv4 Address of Destination     |  Hop   |
+//	|          (32 bits)                | Count  |
+//	|                                   |(8 bits)|
+//	+--------+--------+--------+--------+--------+
+//	|                                   |        |
+//	|   IPv4 Address of Destination     |  Hop   |
+//	|          (32 bits)                | Count  |
+//	|                                   |(8 bits)|
+//	+--------+--------+--------+--------+--------+
+//	|                                            |
+//	|                 ...                        |
+//	|                                            |
+//	+--------+--------+--------+--------+--------+
 func (rt RoutingTable) FormatForPayload() []byte {
-	return nil
+	payload := make([]byte, 0, len(rt.Entries)*5) // 4 bytes for IPv4 address + 1 byte for hop count
+
+	for destinationIP, entry := range rt.Entries {
+		ipv4Bytes := destinationIP.As4()
+		payload = append(payload, ipv4Bytes[:]...)
+		payload = append(payload, byte(entry.HopCount))
+	}
+
+	return payload
 }
 
 // Update updates the routing table with received entries.
