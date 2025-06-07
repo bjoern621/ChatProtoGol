@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"bjoernblessin.de/chatprotogol/socket"
 )
 
 type Command string
@@ -33,7 +35,8 @@ func (ir *InputReader) InputLoop() {
 	fmt.Println("Ready for commands. Type 'exit' to stop, 'help' for a list of commands.")
 
 	for {
-		fmt.Print("> ")
+		fmt.Printf("%s > ", socket.GetLocalAddress().AddrPort())
+
 		if !ir.scanner.Scan() {
 			if err := ir.scanner.Err(); err != nil {
 				fmt.Fprintln(os.Stderr, "Error reading from stdin:", err)

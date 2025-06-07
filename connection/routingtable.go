@@ -6,14 +6,18 @@ import (
 
 type routeEntry struct {
 	HopCount int
-	NextHop  string // The IPv4 address of the next hop router
+	NextHop  netip.AddrPort // The IPv4 address and port of the next hop host
 }
 
 type RoutingTable struct {
 	Entries map[netip.Addr]routeEntry // Maps IPv4 addresses to route entries
 }
 
-// FormatForPayload formats the routing table for inclusion in a Routing Table Update Message.
+var routingTable = RoutingTable{
+	Entries: make(map[netip.Addr]routeEntry),
+}
+
+// formatForPayload formats the routing table for inclusion in a Routing Table Update Message.
 // Format:
 //
 //	+--------+--------+--------+--------+--------+
@@ -31,7 +35,7 @@ type RoutingTable struct {
 //	|                 ...                        |
 //	|                                            |
 //	+--------+--------+--------+--------+--------+
-func (rt RoutingTable) FormatForPayload() []byte {
+func (rt RoutingTable) formatForPayload() []byte {
 	payload := make([]byte, 0, len(rt.Entries)*5) // 4 bytes for IPv4 address + 1 byte for hop count
 
 	for destinationIP, entry := range rt.Entries {
@@ -50,7 +54,7 @@ func (rt RoutingTable) FormatForPayload() []byte {
 // For changed entries, the hop count is incremented by one and the NextHop is set to receivedFrom.
 // Gets the routing table from another host and their IPv4 address as parameters.
 // Returns true if the routing table was updated.
-func (rt RoutingTable) Update(receivedTable RoutingTable, receivedFrom string) bool {
+func (rt RoutingTable) Update(receivedTable RoutingTable, receivedFrom netip.AddrPort) bool {
 	updated := false
 
 	for hostIP, newEntry := range receivedTable.Entries {
@@ -76,4 +80,14 @@ func (rt RoutingTable) Update(receivedTable RoutingTable, receivedFrom string) b
 	}
 
 	return updated
+}
+
+// getNextHop returns the next hop for a given destination IP address.
+func getNextHop(destinationIP netip.Addr) (netip.AddrPort, bool) {
+	entry, exists := routingTable.Entries[destinationIP]
+	if !exists {
+		return netip.AddrPort{}, false
+	}
+
+	return entry.NextHop, true
 }

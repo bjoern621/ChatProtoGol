@@ -25,9 +25,9 @@ var (
 
 // GetLocalAddress returns the local address of the UDP socket.
 // The socket must be open before calling this function.
-func GetLocalAddress() [4]byte {
+func GetLocalAddress() *net.UDPAddr {
 	assert.IsNotNil(udpSocket, "UDP socket is not initialized.")
-	return [4]byte(udpSocket.LocalAddr().(*net.UDPAddr).IP)
+	return udpSocket.LocalAddr().(*net.UDPAddr)
 }
 
 // Subscribe registers an observer to receive packets from the UDP socket.

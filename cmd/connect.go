@@ -37,7 +37,7 @@ func HandleConnect(args []string) {
 
 	packet := &pkt.Packet{
 		Header: pkt.Header{
-			SourceAddr: socket.GetLocalAddress(),
+			SourceAddr: socket.GetLocalAddress().AddrPort().Addr().As4(),
 			DestAddr:   [4]byte{ipv4[0], ipv4[1], ipv4[2], ipv4[3]},
 			Control:    pkt.MakeControlByte(pkt.MsgTypeConnect, true, common.TEAM_ID),
 			TTL:        common.INITIAL_TTL,

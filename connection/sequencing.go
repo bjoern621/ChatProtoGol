@@ -2,16 +2,21 @@ package connection
 
 import "net/netip"
 
-var SequenceNumbers = make(map[netip.Addr]uint32)
+var sequenceNumbers = make(map[netip.Addr]uint32)
 
-// GetNextSequenceNumber returns the next sequence number for the given address.
-func GetNextSequenceNumber(addr netip.Addr) uint32 {
-	seqNum, exists := SequenceNumbers[addr]
+// getNextSequenceNumber returns the next sequence number for the given address.
+func getNextSequenceNumber(addr netip.Addr) [4]byte {
+	seqNum, exists := sequenceNumbers[addr]
 	if !exists {
 		seqNum = 0
 	}
 
-	SequenceNumbers[addr] = seqNum + 1
+	sequenceNumbers[addr] = seqNum + 1
 
-	return seqNum
+	return [4]byte{
+		byte(seqNum >> 24),
+		byte(seqNum >> 16),
+		byte(seqNum >> 8),
+		byte(seqNum),
+	}
 }

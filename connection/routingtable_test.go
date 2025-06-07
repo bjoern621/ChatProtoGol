@@ -16,7 +16,7 @@ func TestRoutingTableFormatForPayload(t *testing.T) {
 			name: "Single entry",
 			table: RoutingTable{
 				Entries: map[netip.Addr]routeEntry{
-					netip.MustParseAddr("10.0.0.1"): {HopCount: 1, NextHop: "10.0.0.1"},
+					netip.MustParseAddr("10.0.0.1"): {HopCount: 1, NextHop: netip.MustParseAddrPort("10.0.0.1:1234")},
 				}},
 			expected: []byte{
 				10, 0, 0, 1,
@@ -27,9 +27,9 @@ func TestRoutingTableFormatForPayload(t *testing.T) {
 			name: "Multiple entries",
 			table: RoutingTable{
 				Entries: map[netip.Addr]routeEntry{
-					netip.MustParseAddr("10.0.0.1"): {HopCount: 1, NextHop: "10.0.0.1"},
-					netip.MustParseAddr("10.0.0.3"): {HopCount: 1, NextHop: "10.0.0.3"},
-					netip.MustParseAddr("10.0.0.4"): {HopCount: 2, NextHop: "10.0.0.3"},
+					netip.MustParseAddr("10.0.0.1"): {HopCount: 1, NextHop: netip.MustParseAddrPort("10.0.0.3:1234")},
+					netip.MustParseAddr("10.0.0.3"): {HopCount: 1, NextHop: netip.MustParseAddrPort("10.0.0.3:1234")},
+					netip.MustParseAddr("10.0.0.4"): {HopCount: 2, NextHop: netip.MustParseAddrPort("10.0.0.3:1234")},
 				}},
 			expected: []byte{
 				10, 0, 0, 1,
@@ -51,7 +51,7 @@ func TestRoutingTableFormatForPayload(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := tt.table.FormatForPayload()
+			result := tt.table.formatForPayload()
 			if !bytes.Equal(result, tt.expected) {
 				t.Errorf("expected %v, got %v", tt.expected, result)
 			}
