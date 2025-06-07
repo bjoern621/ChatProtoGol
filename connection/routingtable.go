@@ -99,3 +99,8 @@ func getNextHop(destinationIP netip.AddrPort) (netip.AddrPort, bool) {
 
 	return entry.NextHop, true
 }
+
+// GetRoutingTable returns the current routing table.
+func GetRoutingTable() RoutingTable {
+	return routingTable
+}

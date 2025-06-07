@@ -37,7 +37,7 @@ func HandleConnect(args []string) {
 	peerAddrPort := netip.AddrPortFrom(peerIP, uint16(port))
 	routeEntry := connection.RouteEntry{
 		NextHop:  peerAddrPort,
-		HopCount: 1,
+		HopCount: 0, // 0 because Update() will increment it to 1
 	}
 	connection.Update(connection.RoutingTable{
 		Entries: map[netip.AddrPort]connection.RouteEntry{
