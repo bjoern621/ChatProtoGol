@@ -17,10 +17,10 @@ func main() {
 
 	reader := inputreader.NewInputReader()
 
-	reader.AddHandler("connect", cmd.HandleConnect)
-	reader.AddHandler("disconnect", cmd.HandleDisconnect)
-	reader.AddHandler("send", cmd.HandleSend)
-	reader.AddHandler("sendfile", cmd.HandleSendFile)
+	reader.AddHandler("conn", cmd.HandleConnect)
+	reader.AddHandler("dis", cmd.HandleDisconnect)
+	reader.AddHandler("msg", cmd.HandleSend)
+	reader.AddHandler("file", cmd.HandleSendFile)
 	reader.AddHandler("init", cmd.HandleInit)
 	reader.AddHandler("list", cmd.HandleList)
 
