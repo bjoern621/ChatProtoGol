@@ -23,13 +23,8 @@ func NewPeer(address netip.AddrPort) *Peer {
 	}
 }
 
-// Send sends a new packet to the peer.
-func (p *Peer) Send(msgType byte, lastBit bool, payload []byte) error {
-	addrPort, found := getNextHop(p.Address)
-	if !found {
-		return errors.New("no next hop found for the peer")
-	}
-
+// SendTo sends a packet to the peer at the specified address and port.
+func (p *Peer) SendTo(addrPort netip.AddrPort, msgType byte, lastBit bool, payload []byte) error {
 	packet := &pkt.Packet{
 		Header: pkt.Header{
 			SourceAddr: socket.GetLocalAddress().AddrPort().Addr().As4(),
@@ -53,6 +48,16 @@ func (p *Peer) Send(msgType byte, lastBit bool, payload []byte) error {
 	}
 
 	return nil
+}
+
+// Send sends a packet to the peer using the routing table.
+func (p *Peer) Send(msgType byte, lastBit bool, payload []byte) error {
+	nextHopAddrPort, found := getNextHop(p.Address)
+	if !found {
+		return errors.New("no next hop found for the peer")
+	}
+
+	return p.SendTo(nextHopAddrPort, msgType, lastBit, payload)
 }
 
 // Forward forwards a packet to the peer.

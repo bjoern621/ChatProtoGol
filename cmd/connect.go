@@ -33,20 +33,9 @@ func HandleConnect(args []string) {
 		return
 	}
 
-	// Add the peer to the routing table
 	peerAddrPort := netip.AddrPortFrom(peerIP, uint16(port))
-	routeEntry := connection.RouteEntry{
-		NextHop:  peerAddrPort,
-		HopCount: 0, // 0 because Update() will increment it to 1
-	}
-	connection.Update(connection.RoutingTable{
-		Entries: map[netip.AddrPort]connection.RouteEntry{
-			peerAddrPort: routeEntry,
-		},
-	}, peerAddrPort)
-
 	peer := connection.NewPeer(peerAddrPort)
-	err = peer.Send(pkt.MsgTypeConnect, true, nil)
+	err = peer.SendTo(peerAddrPort, pkt.MsgTypeConnect, true, nil)
 	if err != nil {
 		fmt.Printf("Failed to send connect message: %v\n", err)
 		return
