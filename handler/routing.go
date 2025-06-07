@@ -35,5 +35,11 @@ func handleDisconnect(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 func handleRoutingTableUpdate(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 	logger.Infof("Routing table update received from %v", packet.Header.SourceAddr)
 
-	// connection.UpdateRoutingTable()
+	rt, err := connection.ParseRoutingTableFromPayload(packet.Payload, sourceAddr.AddrPort())
+	if err != nil {
+		logger.Warnf("Failed to parse routing table from payload: %v", err)
+		return
+	}
+
+	connection.UpdateRoutingTable(rt, sourceAddr.AddrPort())
 }

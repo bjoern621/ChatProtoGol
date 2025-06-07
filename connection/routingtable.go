@@ -83,6 +83,7 @@ func ParseRoutingTableFromPayload(payload []byte, receivedFrom netip.AddrPort) (
 //   - #2 New entries are added to the routing table.
 //   - #3 Existing entries that are not present in the new entries are removed if the existing entry's next hop is the host that sent the update.
 //   - #4 Entries that point to the local host are ignored.
+//   - #5 If the received peer's IPv4 address is not in the routing table, it is added with a hop count of 1 and the next hop set to the receivedFrom address.
 //
 // For changed entries, the hop count is incremented by one and the NextHop is set to receivedFrom.
 // Gets the routing table from another host and their IPv4 address as parameters.
@@ -115,6 +116,11 @@ func UpdateRoutingTable(receivedTable RoutingTable, receivedFrom netip.AddrPort)
 			updated = true
 		}
 	}
+
+	routingTable.Entries[receivedFrom.Addr()] = RouteEntry{
+		HopCount: 1,
+		NextHop:  receivedFrom,
+	} // #5; e.g. when receiving the first routing table update from a new peer
 
 	return updated
 }

@@ -70,7 +70,7 @@ func readLoop() {
 			continue
 		}
 
-		log.Printf("[FROM %s %d bytes] %x", addr.String(), n, buffer[:n])
+		log.Printf("[FROM %s %d bytes]\n", addr.String(), n)
 
 		packetObservable.NotifyObservers(&Packet{addr, buffer[:n]})
 	}
