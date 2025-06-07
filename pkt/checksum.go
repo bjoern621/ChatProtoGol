@@ -1,4 +1,4 @@
-package protocol
+package pkt
 
 // SetChecksum calculates and sets the checksum for a given packet.
 // The current checksum field is irrelevant and will be overwritten.

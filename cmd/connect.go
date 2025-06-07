@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"bjoernblessin.de/chatprotogol/common"
-	"bjoernblessin.de/chatprotogol/protocol"
+	"bjoernblessin.de/chatprotogol/pkt"
 	"bjoernblessin.de/chatprotogol/socket"
 )
 
@@ -35,17 +35,17 @@ func HandleConnect(args []string) {
 		return
 	}
 
-	packet := &protocol.Packet{
-		Header: protocol.Header{
+	packet := &pkt.Packet{
+		Header: pkt.Header{
 			SourceAddr: socket.GetLocalAddress(),
 			DestAddr:   [4]byte{ipv4[0], ipv4[1], ipv4[2], ipv4[3]},
-			Control:    protocol.MakeControlByte(protocol.MsgTypeConnect, true, common.TEAM_ID),
+			Control:    pkt.MakeControlByte(pkt.MsgTypeConnect, true, common.TEAM_ID),
 			TTL:        common.INITIAL_TTL,
 			SeqNum:     [4]byte{0, 0, 0, 0},
 		},
 	}
 
-	protocol.SetChecksum(packet)
+	pkt.SetChecksum(packet)
 
 	err = socket.SendTo(&net.UDPAddr{IP: hostIP, Port: port}, packet.ToByteArray())
 	if err != nil {

@@ -1,4 +1,4 @@
-package protocol
+package connection
 
 import "net/netip"
 

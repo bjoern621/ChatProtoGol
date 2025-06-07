@@ -1,5 +1,4 @@
-// Package routing manages directly connected hosts. It provides a way to deliver messages to these hosts.
-package routing
+package connection
 
 import (
 	"net/netip"

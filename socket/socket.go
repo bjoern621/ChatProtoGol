@@ -13,9 +13,14 @@ import (
 	"bjoernblessin.de/chatprotogol/util/observer"
 )
 
+type Packet struct {
+	Addr *net.UDPAddr
+	Data []byte
+}
+
 var (
 	udpSocket        *net.UDPConn
-	packetObservable = observer.NewObservable[[]byte]()
+	packetObservable = observer.NewObservable[*Packet]()
 )
 
 // GetLocalAddress returns the local address of the UDP socket.
@@ -27,7 +32,7 @@ func GetLocalAddress() [4]byte {
 
 // Subscribe registers an observer to receive packets from the UDP socket.
 // The observer will receive all packets that are received by the socket.
-func Subscribe() chan []byte {
+func Subscribe() chan *Packet {
 	return packetObservable.Subscribe()
 }
 
@@ -67,12 +72,12 @@ func readLoop() {
 
 		log.Printf("[FROM %s %d bytes] %x", addr.String(), n, buffer[:n])
 
-		packetObservable.NotifyObservers(buffer[:n])
+		packetObservable.NotifyObservers(&Packet{addr, buffer[:n]})
 	}
 }
 
 // SendTo sends a byte array to the specified address.
-// Open() must be called once before using this function.
+// Open() must be called before using this function.
 func SendTo(addr *net.UDPAddr, data []byte) error {
 	assert.IsNotNil(udpSocket, "UDP socket is not initialized.")
 
