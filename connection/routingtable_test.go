@@ -51,7 +51,9 @@ func TestRoutingTableFormatForPayload(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := tt.table.formatForPayload()
+			routingTable = tt.table
+
+			result := FormatRoutingTableForPayload()
 			if !bytes.Equal(result, tt.expected) {
 				t.Errorf("expected %v, got %v", tt.expected, result)
 			}

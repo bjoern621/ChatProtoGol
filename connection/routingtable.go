@@ -19,7 +19,7 @@ var routingTable = RoutingTable{
 	Entries: make(map[netip.AddrPort]RouteEntry),
 }
 
-// formatForPayload formats the routing table for inclusion in a Routing Table Update Message.
+// FormatRoutingTableForPayload formats the routing table for inclusion in a Routing Table Update Message.
 // Format:
 //
 //	+--------+--------+--------+--------+--------+
@@ -37,10 +37,10 @@ var routingTable = RoutingTable{
 //	|                 ...                        |
 //	|                                            |
 //	+--------+--------+--------+--------+--------+
-func (rt RoutingTable) formatForPayload() []byte {
-	payload := make([]byte, 0, len(rt.Entries)*5) // 4 bytes for IPv4 address + 1 byte for hop count
+func FormatRoutingTableForPayload() []byte {
+	payload := make([]byte, 0, len(routingTable.Entries)*5) // 4 bytes for IPv4 address + 1 byte for hop count
 
-	for destinationIP, entry := range rt.Entries {
+	for destinationIP, entry := range routingTable.Entries {
 		ipv4Bytes := destinationIP.Addr().As4()
 		payload = append(payload, ipv4Bytes[:]...)
 		payload = append(payload, byte(entry.HopCount))
@@ -88,6 +88,19 @@ func Update(receivedTable RoutingTable, receivedFrom netip.AddrPort) bool {
 	}
 
 	return updated
+}
+
+// AddRoutingEntry adds a new entry to the routing table or updates an existing one if the new hop count is lower than the existing one.
+func AddRoutingEntry(destinationIP netip.AddrPort, hopCount int, nextHop netip.AddrPort) {
+	existingEntry, exists := routingTable.Entries[destinationIP]
+	if exists && hopCount >= existingEntry.HopCount {
+		return // Do not add or update if the new hop count is not lower
+	}
+
+	routingTable.Entries[destinationIP] = RouteEntry{
+		HopCount: hopCount,
+		NextHop:  nextHop,
+	}
 }
 
 // getNextHop returns the next hop for a given destination IP address.
