@@ -12,7 +12,7 @@ import (
 
 // HandleConnect processes the "connect" command to establish a connection to a specified IP address and port.
 func HandleConnect(args []string) {
-	if len(args) == 0 {
+	if len(args) < 2 {
 		fmt.Println("Usage: connect <IP address> <port> Example: connect 10.0.0.2 8080")
 		return
 	}
@@ -37,13 +37,12 @@ func HandleConnect(args []string) {
 
 	packet := &protocol.Packet{
 		Header: protocol.Header{
-			SourceAddr: [4]byte{10, 0, 0, 1},
+			SourceAddr: socket.GetLocalAddress(),
 			DestAddr:   [4]byte{ipv4[0], ipv4[1], ipv4[2], ipv4[3]},
 			Control:    protocol.MakeControlByte(protocol.MsgTypeConnect, true, common.TEAM_ID),
 			TTL:        common.INITIAL_TTL,
 			SeqNum:     [4]byte{0, 0, 0, 0},
 		},
-		Payload: []byte{},
 	}
 
 	protocol.SetChecksum(packet)

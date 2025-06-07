@@ -3,6 +3,7 @@
 package socket
 
 import (
+	"errors"
 	"log"
 	"net"
 
@@ -17,27 +18,37 @@ var (
 	packetObservable = observer.NewObservable[[]byte]()
 )
 
+// GetLocalAddress returns the local address of the UDP socket.
+// The socket must be open before calling this function.
+func GetLocalAddress() [4]byte {
+	assert.IsNotNil(udpSocket, "UDP socket is not initialized.")
+	return [4]byte(udpSocket.LocalAddr().(*net.UDPAddr).IP)
+}
+
 // Subscribe registers an observer to receive packets from the UDP socket.
 // The observer will receive all packets that are received by the socket.
 func Subscribe() chan []byte {
 	return packetObservable.Subscribe()
 }
 
-// Open opens a UDP socket on all available network interfaces.
-// The local port is randomly choosen and returned.
-func Open() (int, error) {
+// Open opens a UDP socket on all available IPv4 network interfaces.
+// The local port is randomly choosen.
+// Returns the local address of the socket and an error if any occurs.
+func Open(ipv4addr net.IP) (*net.UDPAddr, error) {
 	assert.Assert(udpSocket == nil, "UDP socket is already initialized. Call Close() before calling Open() again.")
 
-	socket, err := net.ListenUDP("udp", &net.UDPAddr{Port: 0})
+	socket, err := net.ListenUDP("udp4", &net.UDPAddr{
+		IP:   ipv4addr,
+		Port: 0})
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	udpSocket = socket
 
 	go readLoop()
 
-	return socket.LocalAddr().(*net.UDPAddr).Port, nil
+	return socket.LocalAddr().(*net.UDPAddr), nil
 }
 
 func readLoop() {
@@ -45,6 +56,11 @@ func readLoop() {
 		buffer := make([]byte, common.UDP_BUFFER_SIZE)
 		n, addr, err := udpSocket.ReadFromUDP(buffer)
 		if err != nil {
+			if errors.Is(err, net.ErrClosed) {
+				// Socket is closed, exit the loop
+				return
+			}
+
 			logger.Warnf("Failed to read from UDP socket: %v", err)
 			continue
 		}
@@ -66,5 +82,22 @@ func SendTo(addr *net.UDPAddr, data []byte) error {
 	}
 
 	log.Printf("[TO %s %d bytes]\n", addr.String(), n)
+	return nil
+}
+
+// Close closes the UDP socket if it's open.
+// Observers are not cleared, they will receive packets from future sockets.
+func Close() error {
+	if udpSocket == nil {
+		return nil
+	}
+
+	err := udpSocket.Close()
+	if err != nil {
+		return err
+	}
+
+	udpSocket = nil
+
 	return nil
 }
