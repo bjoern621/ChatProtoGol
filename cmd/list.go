@@ -1,21 +1,25 @@
 package cmd
 
-import "bjoernblessin.de/chatprotogol/connection"
+import (
+	"fmt"
+
+	"bjoernblessin.de/chatprotogol/connection"
+)
 
 func HandleList(args []string) {
 	if len(args) < 0 {
-		println("Usage: list")
+		fmt.Printf("Usage: list")
 		return
 	}
 
 	routingTable := connection.GetRoutingTable()
 	if len(routingTable.Entries) == 0 {
-		println("No entries in the routing table.")
+		fmt.Printf("No entries in the routing table.\n")
 		return
 	}
 
-	println("Routing Table:")
+	fmt.Printf("Routing Table:\n")
 	for addrPort, entry := range routingTable.Entries {
-		println(addrPort.String(), "-> Hop Count:", entry.HopCount, "Next Hop:", entry.NextHop.String())
+		fmt.Printf("  %s -> Hop Count: %d, Next Hop: %s\n", addrPort, entry.HopCount, entry.NextHop)
 	}
 }
