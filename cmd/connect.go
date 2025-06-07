@@ -2,12 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"strconv"
 
-	"bjoernblessin.de/chatprotogol/common"
+	"bjoernblessin.de/chatprotogol/connection"
 	"bjoernblessin.de/chatprotogol/pkt"
-	"bjoernblessin.de/chatprotogol/socket"
 )
 
 // HandleConnect processes the "connect" command to establish a connection to a specified IP address and port.
@@ -17,8 +16,8 @@ func HandleConnect(args []string) {
 		return
 	}
 
-	hostIP := net.ParseIP(args[0])
-	if hostIP == nil {
+	peerIP, err := netip.ParseAddr(args[0])
+	if err != nil {
 		fmt.Printf("Invalid IP address: %s\n", args[0])
 		return
 	}
@@ -29,25 +28,25 @@ func HandleConnect(args []string) {
 		return
 	}
 
-	ipv4 := hostIP.To4()
-	if ipv4 == nil {
+	if !peerIP.Is4() {
 		fmt.Printf("The provided IP address is not a valid IPv4 address: %s\n", args[0])
 		return
 	}
 
-	packet := &pkt.Packet{
-		Header: pkt.Header{
-			SourceAddr: socket.GetLocalAddress().AddrPort().Addr().As4(),
-			DestAddr:   [4]byte{ipv4[0], ipv4[1], ipv4[2], ipv4[3]},
-			Control:    pkt.MakeControlByte(pkt.MsgTypeConnect, true, common.TEAM_ID),
-			TTL:        common.INITIAL_TTL,
-			SeqNum:     [4]byte{0, 0, 0, 0},
-		},
+	// Add the peer to the routing table
+	peerAddrPort := netip.AddrPortFrom(peerIP, uint16(port))
+	routeEntry := connection.RouteEntry{
+		NextHop:  peerAddrPort,
+		HopCount: 1,
 	}
+	connection.Update(connection.RoutingTable{
+		Entries: map[netip.AddrPort]connection.RouteEntry{
+			peerAddrPort: routeEntry,
+		},
+	}, peerAddrPort)
 
-	pkt.SetChecksum(packet)
-
-	err = socket.SendTo(&net.UDPAddr{IP: hostIP, Port: port}, packet.ToByteArray())
+	peer := connection.NewPeer(peerAddrPort)
+	err = peer.Send(pkt.MsgTypeConnect, true, nil)
 	if err != nil {
 		fmt.Printf("Failed to send connect message: %v\n", err)
 		return

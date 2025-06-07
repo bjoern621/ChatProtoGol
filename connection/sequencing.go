@@ -2,10 +2,10 @@ package connection
 
 import "net/netip"
 
-var sequenceNumbers = make(map[netip.Addr]uint32)
+var sequenceNumbers = make(map[netip.AddrPort]uint32)
 
 // getNextSequenceNumber returns the next sequence number for the given address.
-func getNextSequenceNumber(addr netip.Addr) [4]byte {
+func getNextSequenceNumber(addr netip.AddrPort) [4]byte {
 	seqNum, exists := sequenceNumbers[addr]
 	if !exists {
 		seqNum = 0

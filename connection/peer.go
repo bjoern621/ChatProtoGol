@@ -13,11 +13,11 @@ import (
 )
 
 type Peer struct {
-	Address netip.Addr
+	Address netip.AddrPort
 }
 
 // NewPeer creates a new Peer instance with the given address.
-func NewPeer(address netip.Addr) *Peer {
+func NewPeer(address netip.AddrPort) *Peer {
 	return &Peer{
 		Address: address,
 	}
@@ -33,7 +33,7 @@ func (p *Peer) Send(msgType byte, lastBit bool, payload []byte) error {
 	packet := &pkt.Packet{
 		Header: pkt.Header{
 			SourceAddr: socket.GetLocalAddress().AddrPort().Addr().As4(),
-			DestAddr:   p.Address.As4(),
+			DestAddr:   p.Address.Addr().As4(),
 			Control:    pkt.MakeControlByte(msgType, lastBit, common.TEAM_ID),
 			TTL:        common.INITIAL_TTL,
 			SeqNum:     getNextSequenceNumber(p.Address),
