@@ -41,13 +41,12 @@ func HandleConnect(args []string) {
 			DestAddr:   [4]byte{ipv4[0], ipv4[1], ipv4[2], ipv4[3]},
 			Control:    protocol.MakeControlByte(protocol.MsgTypeConnect, true, common.TEAM_ID),
 			TTL:        common.INITIAL_TTL,
-			Checksum:   [2]byte{120, 255},
 			SeqNum:     [4]byte{0, 0, 0, 0},
 		},
 		Payload: []byte{},
 	}
 
-	fmt.Printf("Packet to send: %+v\n", packet)
+	protocol.SetChecksum(packet)
 
 	err = socket.SendTo(&net.UDPAddr{IP: hostIP, Port: port}, packet.ToByteArray())
 	if err != nil {

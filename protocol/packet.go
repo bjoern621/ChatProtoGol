@@ -56,9 +56,9 @@ const (
 	MsgTypeAcknowledgment     = 0x6
 )
 
-func ParsePacket(data []byte) (Packet, error) {
+func ParsePacket(data []byte) (*Packet, error) {
 	if len(data) < 16 {
-		return Packet{}, errors.New("data length is less than 16 bytes, this is shorter than the header size, invalid packet")
+		return &Packet{}, errors.New("data length is less than 16 bytes, this is shorter than the header size, invalid packet")
 	}
 
 	header := Header{
@@ -73,13 +73,16 @@ func ParsePacket(data []byte) (Packet, error) {
 	payload := make(Payload, len(data)-16)
 	copy(payload, data[16:])
 
-	return Packet{
+	return &Packet{
 		Header:  header,
 		Payload: payload,
 	}, nil
 }
 
-func (p Packet) ToByteArray() []byte {
+// ToByteArray serializes the Packet struct into a byte array.
+// Makes a complete copy of all packet data into a new byte slice.
+// Returns a byte array containing the header (16 bytes) followed by the payload.
+func (p *Packet) ToByteArray() []byte {
 	data := make([]byte, 0, 16+len(p.Payload))
 	data = append(data, p.Header.SourceAddr[:]...)
 	data = append(data, p.Header.DestAddr[:]...)
@@ -92,15 +95,15 @@ func (p Packet) ToByteArray() []byte {
 	return data
 }
 
-func (p Packet) IsLast() bool {
+func (p *Packet) IsLast() bool {
 	return p.Header.Control&0b1000 != 0
 }
 
-func (p Packet) GetMessageType() byte {
+func (p *Packet) GetMessageType() byte {
 	return p.Header.Control & 0xF0 >> 4
 }
 
-func (p Packet) GetTeamID() byte {
+func (p *Packet) GetTeamID() byte {
 	return p.Header.Control & 0b111
 }
 
@@ -122,17 +125,17 @@ func MakeControlByte(msgType byte, lastBit bool, teamID byte) byte {
 	return controlByte
 }
 
-func (p Packet) String() string {
+func (p *Packet) String() string {
 	seqNum := uint32(p.Header.SeqNum[0])<<24 | uint32(p.Header.SeqNum[1])<<16 | uint32(p.Header.SeqNum[2])<<8
 
 	return "{ " +
 		fmt.Sprintf("Src:%d.%d.%d.%d ", p.Header.SourceAddr[0], p.Header.SourceAddr[1], p.Header.SourceAddr[2], p.Header.SourceAddr[3]) +
 		fmt.Sprintf("Dest:%d.%d.%d.%d ", p.Header.DestAddr[0], p.Header.DestAddr[1], p.Header.DestAddr[2], p.Header.DestAddr[3]) +
-		fmt.Sprintf("Type:0x%x ", p.GetMessageType()) +
+		fmt.Sprintf("Type:0x%X ", p.GetMessageType()) +
 		fmt.Sprintf("Last:%t ", p.IsLast()) +
 		fmt.Sprintf("Team:%d ", p.GetTeamID()) +
 		fmt.Sprintf("TTL:%d ", p.Header.TTL) +
-		fmt.Sprintf("Chksum:0x%04x ", p.Header.Checksum) +
+		fmt.Sprintf("Chksum:0x%04X ", p.Header.Checksum) +
 		fmt.Sprintf("Seq:%d ", seqNum) +
 		"}"
 }
