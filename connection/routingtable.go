@@ -129,7 +129,7 @@ func UpdateRoutingTable(receivedTable RoutingTable, receivedFrom netip.AddrPort)
 func AddRoutingEntry(destinationIP netip.Addr, hopCount int, nextHop netip.AddrPort) {
 	existingEntry, exists := routingTable.Entries[destinationIP]
 	if exists && hopCount >= existingEntry.HopCount {
-		return // Do not add or update if the new hop count is not lower
+		return // Do not update if the new hop count is not lower
 	}
 
 	routingTable.Entries[destinationIP] = RouteEntry{
@@ -151,4 +151,14 @@ func getNextHop(destinationIP netip.Addr) (netip.AddrPort, bool) {
 // GetRoutingTable returns the current routing table.
 func GetRoutingTable() RoutingTable {
 	return routingTable
+}
+
+// IsNeighbor checks if a given peer is a neighbor, meaning it is directly reachable with a hop count of 1.
+func IsNeighbor(peer netip.Addr) bool {
+	entry, exists := routingTable.Entries[peer]
+	if !exists {
+		return false
+	}
+
+	return entry.HopCount == 1
 }

@@ -42,4 +42,6 @@ func handleRoutingTableUpdate(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 	}
 
 	connection.UpdateRoutingTable(rt, sourceAddr.AddrPort())
+
+	// TODO resend / forwards routing table to other peers
 }

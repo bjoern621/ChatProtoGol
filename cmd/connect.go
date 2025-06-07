@@ -33,6 +33,11 @@ func HandleConnect(args []string) {
 		return
 	}
 
+	if connection.IsNeighbor(peerIP) {
+		fmt.Printf("Already connected to %s\n", peerIP)
+		return
+	}
+
 	peerAddrPort := netip.AddrPortFrom(peerIP, uint16(port))
 	peer := connection.NewPeer(peerAddrPort.Addr())
 	err = peer.SendTo(peerAddrPort, pkt.MsgTypeConnect, true, nil)
