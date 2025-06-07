@@ -15,8 +15,8 @@ func TestRoutingTableFormatForPayload(t *testing.T) {
 		{
 			name: "Single entry",
 			table: RoutingTable{
-				Entries: map[netip.AddrPort]RouteEntry{
-					netip.MustParseAddrPort("10.0.0.1:1234"): {HopCount: 1, NextHop: netip.MustParseAddrPort("10.0.0.1:1234")},
+				Entries: map[netip.Addr]RouteEntry{
+					netip.MustParseAddr("10.0.0.1"): {HopCount: 1, NextHop: netip.MustParseAddrPort("10.0.0.1:1234")},
 				}},
 			expected: []byte{
 				10, 0, 0, 1,
@@ -26,10 +26,10 @@ func TestRoutingTableFormatForPayload(t *testing.T) {
 		{
 			name: "Multiple entries",
 			table: RoutingTable{
-				Entries: map[netip.AddrPort]RouteEntry{
-					netip.MustParseAddrPort("10.0.0.1:1234"): {HopCount: 1, NextHop: netip.MustParseAddrPort("10.0.0.3:1234")},
-					netip.MustParseAddrPort("10.0.0.3:1234"): {HopCount: 1, NextHop: netip.MustParseAddrPort("10.0.0.3:1234")},
-					netip.MustParseAddrPort("10.0.0.4:1234"): {HopCount: 2, NextHop: netip.MustParseAddrPort("10.0.0.3:1234")},
+				Entries: map[netip.Addr]RouteEntry{
+					netip.MustParseAddr("10.0.0.1"): {HopCount: 1, NextHop: netip.MustParseAddrPort("10.0.0.3:1234")},
+					netip.MustParseAddr("10.0.0.3"): {HopCount: 1, NextHop: netip.MustParseAddrPort("10.0.0.3:1234")},
+					netip.MustParseAddr("10.0.0.4"): {HopCount: 2, NextHop: netip.MustParseAddrPort("10.0.0.3:1234")},
 				}},
 			expected: []byte{
 				10, 0, 0, 1,
@@ -43,7 +43,7 @@ func TestRoutingTableFormatForPayload(t *testing.T) {
 		{
 			name: "Empty table",
 			table: RoutingTable{
-				Entries: map[netip.AddrPort]RouteEntry{},
+				Entries: map[netip.Addr]RouteEntry{},
 			},
 			expected: []byte{},
 		},

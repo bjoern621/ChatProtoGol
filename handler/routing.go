@@ -12,10 +12,11 @@ func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 	logger.Infof("Connect request received from %v", packet.Header.SourceAddr)
 
 	senderAddrPort := sourceAddr.AddrPort()
+	senderAddr := sourceAddr.AddrPort().Addr()
 
-	connection.NewPeer(senderAddrPort)
+	connection.NewPeer(senderAddr)
 
-	connection.AddRoutingEntry(senderAddrPort, 1, senderAddrPort)
+	connection.AddRoutingEntry(senderAddr, 1, senderAddrPort)
 
 	payload := connection.FormatRoutingTableForPayload()
 
@@ -33,4 +34,6 @@ func handleDisconnect(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 
 func handleRoutingTableUpdate(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 	logger.Infof("Routing table update received from %v", packet.Header.SourceAddr)
+
+	// connection.UpdateRoutingTable()
 }

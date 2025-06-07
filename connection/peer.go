@@ -13,15 +13,15 @@ import (
 )
 
 type Peer struct {
-	address netip.AddrPort
+	address netip.Addr
 }
 
 var (
-	peers = make(map[netip.AddrPort]*Peer) // Maps IPv4 addresses to Peer instances
+	peers = make(map[netip.Addr]*Peer) // Maps IPv4 addresses to Peer instances
 )
 
 // NewPeer creates a new Peer instance with the given address.
-func NewPeer(address netip.AddrPort) *Peer {
+func NewPeer(address netip.Addr) *Peer {
 	peer := &Peer{
 		address: address,
 	}
@@ -34,7 +34,7 @@ func (p *Peer) SendTo(addrPort netip.AddrPort, msgType byte, lastBit bool, paylo
 	packet := &pkt.Packet{
 		Header: pkt.Header{
 			SourceAddr: socket.GetLocalAddress().AddrPort().Addr().As4(),
-			DestAddr:   p.address.Addr().As4(),
+			DestAddr:   p.address.As4(),
 			Control:    pkt.MakeControlByte(msgType, lastBit, common.TEAM_ID),
 			TTL:        common.INITIAL_TTL,
 			SeqNum:     getNextSequenceNumber(p.address),
@@ -76,7 +76,7 @@ func (p *Peer) Forward(payload []byte) error {
 }
 
 // SendAll sends a packet to all peers in the provided peer map.
-func SendAll(msgType byte, lastBit bool, payload []byte, peerMap map[netip.AddrPort]*Peer) error {
+func SendAll(msgType byte, lastBit bool, payload []byte, peerMap map[netip.Addr]*Peer) error {
 	for _, peer := range peerMap {
 		err := peer.Send(msgType, lastBit, payload)
 		if err != nil {
@@ -88,8 +88,8 @@ func SendAll(msgType byte, lastBit bool, payload []byte, peerMap map[netip.AddrP
 }
 
 // GetAllPeers returns a copy of the current peers map.
-func GetAllPeers() map[netip.AddrPort]*Peer {
-	peersCopy := make(map[netip.AddrPort]*Peer, len(peers))
+func GetAllPeers() map[netip.Addr]*Peer {
+	peersCopy := make(map[netip.Addr]*Peer, len(peers))
 
 	for addr, peer := range peers {
 		peersCopy[addr] = peer

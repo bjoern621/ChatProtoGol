@@ -34,7 +34,7 @@ func HandleConnect(args []string) {
 	}
 
 	peerAddrPort := netip.AddrPortFrom(peerIP, uint16(port))
-	peer := connection.NewPeer(peerAddrPort)
+	peer := connection.NewPeer(peerAddrPort.Addr())
 	err = peer.SendTo(peerAddrPort, pkt.MsgTypeConnect, true, nil)
 	if err != nil {
 		fmt.Printf("Failed to send connect message: %v\n", err)
