@@ -179,6 +179,19 @@ func GetAllPeers() map[netip.Addr]*Peer {
 	return peersCopy
 }
 
+// GetAllNeighbors returns a map of all neighbors (peers that are directly connected).
+func GetAllNeighbors() map[netip.Addr]*Peer {
+	neighbors := make(map[netip.Addr]*Peer)
+
+	for addr, peer := range peers {
+		if IsNeighbor(addr) {
+			neighbors[addr] = peer
+		}
+	}
+
+	return neighbors
+}
+
 // SendCurrentRoutingTable sends the current routing table to all specified peers.
 func SendCurrentRoutingTable(peerMap map[netip.Addr]*Peer) {
 	payload := FormatRoutingTableForPayload()

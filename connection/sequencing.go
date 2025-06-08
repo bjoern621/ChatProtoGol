@@ -73,7 +73,7 @@ func handleAckTimeout(peer *Peer, packet *pkt.Packet) {
 
 	peer.sendPacketTo(nextHop, packet)
 
-	openAck, exists := openAcks[peer][packet.Header.SeqNum]
+	openAck, exists := openAcks[peer][packet.Header.SeqNum] // TODO
 	assert.Assert(exists, "No open acknowledgment found for peer %s with sequence number %v", peer.address, packet.Header.SeqNum)
 
 	openAck.retries--
@@ -86,9 +86,12 @@ func handleAckTimeout(peer *Peer, packet *pkt.Packet) {
 }
 
 // RemoveOpenAck removes a sequence number from the open acknowledgments for the given peer.
+// If the sequence number does not exist, it does nothing.
 func RemoveOpenAck(peer *Peer, seqNum [4]byte) {
 	openAck, exists := openAcks[peer][seqNum]
-	assert.Assert(exists, "No open acknowledgment found for address %s with sequence number %v", peer.address, seqNum)
+	if !exists {
+		return
+	}
 
 	openAck.timer.Stop()
 	delete(openAcks[peer], seqNum)

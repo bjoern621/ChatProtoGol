@@ -81,7 +81,7 @@ func ParseRoutingTableFromPayload(payload []byte, receivedFrom netip.AddrPort) (
 // UpdateRoutingTable updates the routing table with received entries.
 //   - #1 An already existing entry is updated if the new hop count is lower than the existing one.
 //   - #2 New entries are added to the routing table.
-//   - #3 Existing entries that are not present in the new entries are removed if the existing entry's next hop is the host that sent the update.
+//   - #3 Existing entries that are not present in the new entries are removed if the existing entry's next hop is the host that sent the update and the entry doesn't correspond to the neigbor we received the update from.
 //   - #4 Entries that point to the local host are ignored.
 //   - #5 If the received peer's IPv4 address is not in the routing table, it is added with a hop count of 1 and the next hop set to the receivedFrom address.
 //
@@ -91,16 +91,16 @@ func ParseRoutingTableFromPayload(payload []byte, receivedFrom netip.AddrPort) (
 func UpdateRoutingTable(receivedTable RoutingTable, receivedFrom netip.AddrPort) bool {
 	updated := false
 
-	for hostIP, newEntry := range receivedTable.Entries {
+	for newHostIP, newEntry := range receivedTable.Entries {
 		incrementedHopCount := newEntry.HopCount + 1
-		existingEntry, exists := routingTable.Entries[hostIP]
+		existingEntry, exists := routingTable.Entries[newHostIP]
 
 		if !exists || incrementedHopCount < existingEntry.HopCount { // #1, #2
-			if socket.GetLocalAddress().AddrPort().Addr() == hostIP {
+			if socket.GetLocalAddress().AddrPort().Addr() == newHostIP {
 				continue // #4
 			}
 
-			routingTable.Entries[hostIP] = RouteEntry{
+			routingTable.Entries[newHostIP] = RouteEntry{
 				HopCount: incrementedHopCount,
 				NextHop:  receivedFrom,
 			}
@@ -108,19 +108,23 @@ func UpdateRoutingTable(receivedTable RoutingTable, receivedFrom netip.AddrPort)
 		}
 	}
 
-	for hostIP, entry := range routingTable.Entries {
-		_, existsInNewTable := receivedTable.Entries[hostIP]
+	for existingHostIP, entry := range routingTable.Entries {
+		_, existsInNewTable := receivedTable.Entries[existingHostIP]
 
-		if !existsInNewTable && entry.NextHop == receivedFrom { // #3
-			delete(routingTable.Entries, hostIP)
+		if !existsInNewTable && entry.NextHop == receivedFrom && existingHostIP != receivedFrom.Addr() { // #3
+			delete(routingTable.Entries, existingHostIP)
 			updated = true
 		}
 	}
 
-	routingTable.Entries[receivedFrom.Addr()] = RouteEntry{
-		HopCount: 1,
-		NextHop:  receivedFrom,
-	} // #5; e.g. when receiving the first routing table update from a new peer
+	if _, exists := routingTable.Entries[receivedFrom.Addr()]; !exists {
+		routingTable.Entries[receivedFrom.Addr()] = RouteEntry{
+			HopCount: 1,
+			NextHop:  receivedFrom,
+		} // #5; e.g. when receiving the first routing table update from a new peer
+
+		updated = true
+	}
 
 	return updated
 }
