@@ -138,6 +138,17 @@ func AddRoutingEntry(destinationIP netip.Addr, hopCount int, nextHop netip.AddrP
 	}
 }
 
+// RemoveRoutingEntry removes an entry from the routing table by its destination IP address.
+// If the entry does not exist, it does nothing.
+func RemoveRoutingEntry(destinationIP netip.Addr) {
+	_, exists := routingTable.Entries[destinationIP]
+	if !exists {
+		return // No entry to remove
+	}
+
+	delete(routingTable.Entries, destinationIP)
+}
+
 // getNextHop returns the next hop for a given destination IP address.
 func getNextHop(destinationIP netip.Addr) (addrPort netip.AddrPort, found bool) {
 	entry, exists := routingTable.Entries[destinationIP]

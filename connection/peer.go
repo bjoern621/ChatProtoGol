@@ -40,10 +40,16 @@ func GetPeer(addr netip.Addr) (p *Peer, exists bool) {
 	return peer, true
 }
 
+// Delete removes the peer from the managed peers.
+// This should be called when the peer is no longer needed, such as after a disconnect.
+func (p *Peer) Delete() {
+	delete(peers, p.address)
+}
+
 // SendNewTo sends a packet to the peer at the specified address and port.
 // Timeouts and resends are handled.
 func (p *Peer) SendNewTo(addrPort netip.AddrPort, msgType byte, lastBit bool, payload []byte) error {
-	seqNum := getNextSequenceNumber(p.address)
+	seqNum := getNextSequenceNumber(p)
 
 	packet, err := p.sendNewTo(addrPort, msgType, lastBit, payload, seqNum)
 	if err != nil {
@@ -171,4 +177,15 @@ func GetAllPeers() map[netip.Addr]*Peer {
 
 	maps.Copy(peersCopy, peers)
 	return peersCopy
+}
+
+// SendCurrentRoutingTable sends the current routing table to all specified peers.
+func SendCurrentRoutingTable(peerMap map[netip.Addr]*Peer) {
+	payload := FormatRoutingTableForPayload()
+
+	err := SendNewAll(pkt.MsgTypeRoutingTableUpdate, true, payload, peerMap)
+	if err != nil {
+		logger.Warnf("Failed to send routing table update at least one peer: %v", err)
+		return
+	}
 }

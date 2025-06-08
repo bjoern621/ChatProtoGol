@@ -5,4 +5,4 @@ const MAX_PAYLOAD_SIZE = 1200 // MTU in bytes after subtracting ALL headers (IP,
 const ACK_TIMEOUT_SECONDS = 5
 const RETRIES_PER_PACKET = 2
 const TEAM_ID = 0x2
-const UDP_BUFFER_SIZE = 1500 // Standard MTU size for Ethernet
+const UDP_BUFFER_SIZE_BYTES = 1500 // Standard MTU size for Ethernet

@@ -14,7 +14,8 @@ func handleAck(packet *pkt.Packet) {
 	addr := netip.AddrFrom4([4]byte(packet.Header.SourceAddr))
 	peer, exists := connection.GetPeer(addr)
 	if !exists {
-		logger.Warnf("Received ACK for unknown peer %v", addr)
+		// Peer was already removed or never existed
+		// e.g. we send an disconnect message (remove the corresponding peer) and receive an ACK
 		return
 	}
 

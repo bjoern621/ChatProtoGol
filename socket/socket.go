@@ -57,7 +57,7 @@ func Open(ipv4addr net.IP) (*net.UDPAddr, error) {
 
 func readLoop() {
 	for {
-		buffer := make([]byte, common.UDP_BUFFER_SIZE)
+		buffer := make([]byte, common.UDP_BUFFER_SIZE_BYTES)
 		n, addr, err := udpSocket.ReadFromUDP(buffer)
 		if err != nil {
 			if errors.Is(err, net.ErrClosed) {

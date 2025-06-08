@@ -8,6 +8,10 @@ import (
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
 
+// handleConnect processes a connection request from a peer.
+// It adds the (new) peer to the routing table with a hop count of 1.
+// It sends an acknowledgment back to the sender.
+// It sends the current routing table to all peers (inluding the new peer).
 func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 	logger.Infof("CONN FROM %v", packet.Header.SourceAddr)
 
@@ -20,20 +24,39 @@ func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 
 	peer.SendAcknowledgment(packet.Header.SeqNum)
 
-	payload := connection.FormatRoutingTableForPayload()
-
-	err := connection.SendNewAll(pkt.MsgTypeRoutingTableUpdate, true, payload, connection.GetAllPeers())
-	if err != nil {
-		logger.Warnf("Failed to send routing table update to %v: %v", senderAddrPort, err)
-		return
-	}
+	connection.SendCurrentRoutingTable(connection.GetAllPeers())
 }
 
+// handleDisconnect processes a disconnect request from a peer.
+// It sends an acknowledgment back to the sender.
+// It removes the peer from the routing table and clears its sequence numbers.
+// It sends an updated routing table to all peers (excluding the disconnected peer).
 func handleDisconnect(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 	logger.Infof("DISCO FROM %v", packet.Header.SourceAddr)
-	// Handle disconnect logic here
+
+	peer, exists := connection.GetPeer(sourceAddr.AddrPort().Addr())
+	if !exists {
+		logger.Warnf("Received disconnect from unknown peer %v", sourceAddr.AddrPort().Addr())
+		return
+	}
+	peer.SendAcknowledgment(packet.Header.SeqNum)
+
+	if !connection.IsNeighbor(sourceAddr.AddrPort().Addr()) {
+		logger.Warnf("Received disconnect from non-neighbor peer %v", sourceAddr.AddrPort().Addr())
+		return
+	}
+
+	peer.Delete()
+	connection.RemoveRoutingEntry(sourceAddr.AddrPort().Addr())
+	connection.ClearSequenceNumbers(peer)
+
+	connection.SendCurrentRoutingTable(connection.GetAllPeers())
 }
 
+// handleRoutingTableUpdate processes a routing table update packet from a peer.
+// Send an acknowledgment back to the sender.
+// Update the local routing table with the new information.
+// Forward the routing table to other peers if necessary.
 func handleRoutingTableUpdate(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 	logger.Infof("ROUTING FROM %v", packet.Header.SourceAddr)
 
@@ -43,7 +66,7 @@ func handleRoutingTableUpdate(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 		return
 	}
 
-	connection.UpdateRoutingTable(rt, sourceAddr.AddrPort())
+	_ = connection.UpdateRoutingTable(rt, sourceAddr.AddrPort())
 
 	peer, exists := connection.GetPeer(sourceAddr.AddrPort().Addr())
 	if !exists {
@@ -52,5 +75,5 @@ func handleRoutingTableUpdate(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 	}
 	peer.SendAcknowledgment(packet.Header.SeqNum)
 
-	// TODO resend / forwards routing table to other peers
+	// connection.SendCurrentRoutingTable(connection.GetAllPeers())
 }

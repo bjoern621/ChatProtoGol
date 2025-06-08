@@ -2,7 +2,6 @@ package connection
 
 import (
 	"fmt"
-	"net/netip"
 	"time"
 
 	"bjoernblessin.de/chatprotogol/common"
@@ -10,7 +9,7 @@ import (
 	"bjoernblessin.de/chatprotogol/util/assert"
 )
 
-var sequenceNumbers = make(map[netip.Addr]uint32)
+var sequenceNumbers = make(map[*Peer]uint32)
 var openAcks = make(map[*Peer]map[[4]byte]*OpenAck)
 
 type OpenAck struct {
@@ -19,14 +18,25 @@ type OpenAck struct {
 	retries int
 }
 
+func ClearSequenceNumbers(peer *Peer) {
+	delete(sequenceNumbers, peer)
+
+	if acks, exists := openAcks[peer]; exists {
+		for seqNum, ack := range acks {
+			ack.timer.Stop()
+			delete(openAcks[peer], seqNum)
+		}
+	}
+}
+
 // getNextSequenceNumber returns the next sequence number for the given address.
-func getNextSequenceNumber(addr netip.Addr) [4]byte {
-	seqNum, exists := sequenceNumbers[addr]
+func getNextSequenceNumber(peer *Peer) [4]byte {
+	seqNum, exists := sequenceNumbers[peer]
 	if !exists {
 		seqNum = 0
 	}
 
-	sequenceNumbers[addr] = seqNum + 1
+	sequenceNumbers[peer] = seqNum + 1
 
 	return [4]byte{
 		byte(seqNum >> 24),
