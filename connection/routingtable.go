@@ -139,7 +139,7 @@ func AddRoutingEntry(destinationIP netip.Addr, hopCount int, nextHop netip.AddrP
 }
 
 // getNextHop returns the next hop for a given destination IP address.
-func getNextHop(destinationIP netip.Addr) (netip.AddrPort, bool) {
+func getNextHop(destinationIP netip.Addr) (addrPort netip.AddrPort, found bool) {
 	entry, exists := routingTable.Entries[destinationIP]
 	if !exists {
 		return netip.AddrPort{}, false

@@ -36,6 +36,8 @@ func processPacket(udpPacket *socket.Packet) {
 		handleDisconnect(packet, udpPacket.Addr)
 	case pkt.MsgTypeRoutingTableUpdate:
 		handleRoutingTableUpdate(packet, udpPacket.Addr)
+	case pkt.MsgTypeAcknowledgment:
+		handleAck(packet)
 	default:
 		logger.Warnf("Unhandled packet type: %v from %v to %v", packet.GetMessageType(), packet.Header.SourceAddr, packet.Header.DestAddr)
 		return

@@ -1,5 +1,5 @@
 // Package connection manages the connection to a peer.
-// It handles the routing table, sequence numbers, and connection establishment.
+// It handles the routing table, sequence numbers, and connection management.
 package connection
 
 import (
@@ -7,9 +7,12 @@ import (
 	"net"
 	"net/netip"
 
+	"maps"
+
 	"bjoernblessin.de/chatprotogol/common"
 	"bjoernblessin.de/chatprotogol/pkt"
 	"bjoernblessin.de/chatprotogol/socket"
+	"bjoernblessin.de/chatprotogol/util/logger"
 )
 
 type Peer struct {
@@ -29,20 +32,54 @@ func NewPeer(address netip.Addr) *Peer {
 	return peer
 }
 
-// SendTo sends a packet to the peer at the specified address and port.
-func (p *Peer) SendTo(addrPort netip.AddrPort, msgType byte, lastBit bool, payload []byte) error {
+func GetPeer(addr netip.Addr) (p *Peer, exists bool) {
+	peer, exists := peers[addr]
+	if !exists {
+		return nil, false
+	}
+	return peer, true
+}
+
+// SendNewTo sends a packet to the peer at the specified address and port.
+// Timeouts and resends are handled.
+func (p *Peer) SendNewTo(addrPort netip.AddrPort, msgType byte, lastBit bool, payload []byte) error {
+	seqNum := getNextSequenceNumber(p.address)
+
+	packet, err := p.sendNewTo(addrPort, msgType, lastBit, payload, seqNum)
+	if err != nil {
+		return err
+	}
+
+	addOpenAck(p, packet)
+
+	return nil
+}
+
+// sendNewTo is a helper function that constructs and sends a packet to the peer.
+// It does not handle timeouts or resends.
+func (p *Peer) sendNewTo(addrPort netip.AddrPort, msgType byte, lastBit bool, payload []byte, seqNum [4]byte) (*pkt.Packet, error) {
 	packet := &pkt.Packet{
 		Header: pkt.Header{
 			SourceAddr: socket.GetLocalAddress().AddrPort().Addr().As4(),
 			DestAddr:   p.address.As4(),
 			Control:    pkt.MakeControlByte(msgType, lastBit, common.TEAM_ID),
 			TTL:        common.INITIAL_TTL,
-			SeqNum:     getNextSequenceNumber(p.address),
+			SeqNum:     seqNum,
 		},
 		Payload: payload,
 	}
 	pkt.SetChecksum(packet)
 
+	err := p.sendPacketTo(addrPort, packet)
+	if err != nil {
+		return nil, err
+	}
+
+	return packet, nil
+}
+
+// sendPacketTo sends the packet to the specified address and port.
+func (p *Peer) sendPacketTo(addrPort netip.AddrPort, packet *pkt.Packet) error {
 	nextHop := &net.UDPAddr{
 		IP:   addrPort.Addr().AsSlice(),
 		Port: int(addrPort.Port()),
@@ -56,18 +93,20 @@ func (p *Peer) SendTo(addrPort netip.AddrPort, msgType byte, lastBit bool, paylo
 	return nil
 }
 
-// Send sends a packet to the peer using the routing table.
-func (p *Peer) Send(msgType byte, lastBit bool, payload []byte) error {
+// SendNew sends a packet to the peer using the routing table.
+// Timeouts and resends are handled.
+func (p *Peer) SendNew(msgType byte, lastBit bool, payload []byte) error {
 	nextHopAddrPort, found := getNextHop(p.address)
 	if !found {
 		return errors.New("no next hop found for the peer")
 	}
 
-	return p.SendTo(nextHopAddrPort, msgType, lastBit, payload)
+	return p.SendNewTo(nextHopAddrPort, msgType, lastBit, payload)
 }
 
 // Forward forwards a packet to the peer.
 // This function automatically decrements the TTL by one.
+// Timeouts and resends are handled.
 func (p *Peer) Forward(payload []byte) error {
 	// Implementation for forwarding a packet to the peer.
 	// This could involve modifying the packet if necessary and then sending it.
@@ -75,10 +114,11 @@ func (p *Peer) Forward(payload []byte) error {
 	return nil
 }
 
-// SendAll sends a packet to all peers in the provided peer map.
-func SendAll(msgType byte, lastBit bool, payload []byte, peerMap map[netip.Addr]*Peer) error {
+// SendNewAll sends a packet to all peers in the provided peer map.
+// Timeouts and resends are handled.
+func SendNewAll(msgType byte, lastBit bool, payload []byte, peerMap map[netip.Addr]*Peer) error {
 	for _, peer := range peerMap {
-		err := peer.Send(msgType, lastBit, payload)
+		err := peer.SendNew(msgType, lastBit, payload)
 		if err != nil {
 			return err
 		}
@@ -87,12 +127,36 @@ func SendAll(msgType byte, lastBit bool, payload []byte, peerMap map[netip.Addr]
 	return nil
 }
 
+func (p *Peer) SendAcknowledgment(seqNum [4]byte) {
+	ackPacket := &pkt.Packet{
+		Header: pkt.Header{
+			SourceAddr: socket.GetLocalAddress().AddrPort().Addr().As4(),
+			DestAddr:   p.address.As4(),
+			Control:    pkt.MakeControlByte(pkt.MsgTypeAcknowledgment, true, common.TEAM_ID),
+			SeqNum:     seqNum,
+		},
+	}
+	pkt.SetChecksum(ackPacket)
+
+	nextHop, found := getNextHop(p.address)
+	if !found {
+		logger.Warnf("No next hop found for peer %v when sending acknowledgment", p.address)
+		return
+	}
+
+	err := p.sendPacketTo(nextHop, ackPacket)
+	if err != nil {
+		logger.Warnf("Failed to send acknowledgment to peer %v: %v", p.address, err)
+		return
+	}
+
+	return
+}
+
 // GetAllPeers returns a copy of the current peers map.
 func GetAllPeers() map[netip.Addr]*Peer {
 	peersCopy := make(map[netip.Addr]*Peer, len(peers))
 
-	for addr, peer := range peers {
-		peersCopy[addr] = peer
-	}
+	maps.Copy(peersCopy, peers)
 	return peersCopy
 }

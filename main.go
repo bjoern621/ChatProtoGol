@@ -17,7 +17,7 @@ func main() {
 
 	reader := inputreader.NewInputReader()
 
-	reader.AddHandler("conn", cmd.HandleConnect)
+	reader.AddHandler("con", cmd.HandleConnect)
 	reader.AddHandler("dis", cmd.HandleDisconnect)
 	reader.AddHandler("msg", cmd.HandleSend)
 	reader.AddHandler("file", cmd.HandleSendFile)

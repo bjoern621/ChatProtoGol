@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/netip"
 	"strconv"
+	"strings"
 
 	"bjoernblessin.de/chatprotogol/connection"
 	"bjoernblessin.de/chatprotogol/pkt"
@@ -11,9 +12,18 @@ import (
 
 // HandleConnect processes the "connect" command to establish a connection to a specified IP address and port.
 func HandleConnect(args []string) {
-	if len(args) < 2 {
-		fmt.Println("Usage: connect <IP address> <port> Example: connect 10.0.0.2 8080")
+	if len(args) < 1 {
+		printUsage()
 		return
+	}
+
+	if strings.Contains(args[0], ":") {
+		parts := strings.Split(args[0], ":")
+		if len(parts) != 2 {
+			printUsage()
+			return
+		}
+		args = parts
 	}
 
 	peerIP, err := netip.ParseAddr(args[0])
@@ -40,9 +50,13 @@ func HandleConnect(args []string) {
 
 	peerAddrPort := netip.AddrPortFrom(peerIP, uint16(port))
 	peer := connection.NewPeer(peerAddrPort.Addr())
-	err = peer.SendTo(peerAddrPort, pkt.MsgTypeConnect, true, nil)
+	err = peer.SendNewTo(peerAddrPort, pkt.MsgTypeConnect, true, nil)
 	if err != nil {
 		fmt.Printf("Failed to send connect message: %v\n", err)
 		return
 	}
+}
+
+func printUsage() {
+	fmt.Println("Usage: connect <IP address | IP address:port> <port> Example: con 10.0.0.2 8080; con 10.0.0.2:8080")
 }
