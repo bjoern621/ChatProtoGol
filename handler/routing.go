@@ -12,16 +12,19 @@ import (
 // It adds the (new) peer to the routing table with a hop count of 1.
 // It sends an acknowledgment back to the sender.
 // It sends the current routing table to all neighbors (inluding the new peer).
-// TODO handle incoming routintg table
 func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 	logger.Infof("CONN FROM %v", packet.Header.SourceAddr)
 
-	senderAddrPort := sourceAddr.AddrPort()
 	senderAddr := sourceAddr.AddrPort().Addr()
 
 	peer := connection.NewPeer(senderAddr)
 
-	connection.AddRoutingEntry(senderAddr, 1, senderAddrPort)
+	rt, err := connection.ParseRoutingTableFromPayload(packet.Payload, sourceAddr.AddrPort())
+	if err != nil {
+		logger.Warnf("Failed to parse routing table from payload: %v", err)
+		return
+	}
+	connection.UpdateRoutingTable(rt, sourceAddr.AddrPort())
 
 	peer.SendAcknowledgment(packet.Header.SeqNum)
 

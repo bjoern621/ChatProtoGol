@@ -50,7 +50,10 @@ func HandleConnect(args []string) {
 
 	peerAddrPort := netip.AddrPortFrom(peerIP, uint16(port))
 	peer := connection.NewPeer(peerAddrPort.Addr())
-	err = peer.SendNewTo(peerAddrPort, pkt.MsgTypeConnect, true, nil)
+
+	payload := connection.FormatRoutingTableForPayload()
+
+	err = peer.SendNewTo(peerAddrPort, pkt.MsgTypeConnect, true, payload)
 	if err != nil {
 		fmt.Printf("Failed to send connect message: %v\n", err)
 		return
@@ -58,5 +61,5 @@ func HandleConnect(args []string) {
 }
 
 func printUsage() {
-	fmt.Println("Usage: connect <IP address | IP address:port> <port> Example: con 10.0.0.2 8080; con 10.0.0.2:8080")
+	fmt.Println("Usage: connect (<IP address> <port> | <IP address:port>) Example: con 10.0.0.2 8080; con 10.0.0.2:8080")
 }
