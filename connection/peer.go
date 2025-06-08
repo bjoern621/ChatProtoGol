@@ -78,6 +78,16 @@ func (p *Peer) sendNewTo(addrPort netip.AddrPort, msgType byte, lastBit bool, pa
 	return packet, nil
 }
 
+var msgTypeNames = map[byte]string{
+	pkt.MsgTypeConnect:            "CONN",
+	pkt.MsgTypeDisconnect:         "DIS",
+	pkt.MsgTypeRoutingTableUpdate: "ROUTING",
+	pkt.MsgTypeChatMessage:        "MSG",
+	pkt.MsgTypeFileTransfer:       "FILE",
+	pkt.MsgTypeResendRequest:      "RESEND",
+	pkt.MsgTypeAcknowledgment:     "ACK",
+}
+
 // sendPacketTo sends the packet to the specified address and port.
 func (p *Peer) sendPacketTo(addrPort netip.AddrPort, packet *pkt.Packet) error {
 	nextHop := &net.UDPAddr{
@@ -89,6 +99,8 @@ func (p *Peer) sendPacketTo(addrPort netip.AddrPort, packet *pkt.Packet) error {
 	if err != nil {
 		return errors.New("failed to send packet to peer: " + err.Error())
 	}
+
+	logger.Infof("SENT %s %d to %v", msgTypeNames[packet.GetMessageType()], packet.Header.SeqNum, packet.Header.DestAddr)
 
 	return nil
 }

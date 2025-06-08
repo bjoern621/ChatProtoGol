@@ -4,7 +4,6 @@ package socket
 
 import (
 	"errors"
-	"log"
 	"net"
 
 	"bjoernblessin.de/chatprotogol/common"
@@ -70,8 +69,6 @@ func readLoop() {
 			continue
 		}
 
-		log.Printf("[FROM %s %d bytes]\n", addr.String(), n)
-
 		packetObservable.NotifyObservers(&Packet{addr, buffer[:n]})
 	}
 }
@@ -81,12 +78,11 @@ func readLoop() {
 func SendTo(addr *net.UDPAddr, data []byte) error {
 	assert.IsNotNil(udpSocket, "UDP socket is not initialized.")
 
-	n, err := udpSocket.WriteToUDP(data, addr)
+	_, err := udpSocket.WriteToUDP(data, addr)
 	if err != nil {
 		return err
 	}
 
-	log.Printf("[TO %s %d bytes]\n", addr.String(), n)
 	return nil
 }
 

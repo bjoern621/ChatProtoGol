@@ -9,7 +9,7 @@ import (
 )
 
 func handleAck(packet *pkt.Packet) {
-	logger.Infof("ACK received from source %v for packet with sequence number %d", packet.Header.SourceAddr, packet.Header.SeqNum)
+	logger.Infof("ACK RECEIVED %v %d", packet.Header.SourceAddr, packet.Header.SeqNum)
 
 	addr := netip.AddrFrom4([4]byte(packet.Header.SourceAddr))
 	peer, exists := connection.GetPeer(addr)
