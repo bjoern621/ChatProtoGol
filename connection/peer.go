@@ -114,7 +114,7 @@ func (p *Peer) sendPacketTo(addrPort netip.AddrPort, packet *pkt.Packet) error {
 // SendNew sends a packet to the peer using the routing table.
 // Timeouts and resends are handled.
 func (p *Peer) SendNew(msgType byte, lastBit bool, payload []byte) error {
-	nextHopAddrPort, found := getNextHop(p.address)
+	nextHopAddrPort, found := GetNextHop(p.address)
 	if !found {
 		return errors.New("no next hop found for the peer")
 	}
@@ -156,7 +156,7 @@ func (p *Peer) SendAcknowledgment(seqNum [4]byte) {
 	}
 	pkt.SetChecksum(ackPacket)
 
-	nextHop, found := getNextHop(p.address)
+	nextHop, found := GetNextHop(p.address)
 	if !found {
 		logger.Warnf("No next hop found for peer %v when sending acknowledgment", p.address)
 		return

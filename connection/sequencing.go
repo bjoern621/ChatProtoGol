@@ -65,7 +65,7 @@ func addOpenAck(peer *Peer, packet *pkt.Packet) {
 func handleAckTimeout(peer *Peer, packet *pkt.Packet) {
 	fmt.Printf("ACK timeout for peer %s with sequence number %v\n", peer.address, packet.Header.SeqNum)
 
-	nextHop, found := getNextHop(peer.address)
+	nextHop, found := GetNextHop(peer.address)
 	if !found {
 		fmt.Printf("Peer %s is no longer reachable, removing open acknowledgment for sequence number %v", peer.address, packet.Header.SeqNum)
 		return // Peer no longer reachable (e.g., disconnected)

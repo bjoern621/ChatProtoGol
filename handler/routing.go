@@ -33,7 +33,7 @@ func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 
 // handleDisconnect processes a disconnect request from a peer.
 // It sends an acknowledgment back to the sender.
-// It removes the peer from the routing table and clears its sequence numbers.
+// It removes all peers routed trough the disconnected peer from the routing table and clears their sequence numbers.
 // It sends an updated routing table to all neighbors (excluding the disconnected peer).
 func handleDisconnect(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 	logger.Infof("DISCO FROM %v", packet.Header.SourceAddr)
@@ -51,7 +51,7 @@ func handleDisconnect(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 	}
 
 	peer.Delete()
-	connection.RemoveRoutingEntry(sourceAddr.AddrPort().Addr())
+	connection.RemoveRoutingEntriesWithNextHop(sourceAddr.AddrPort())
 	connection.ClearSequenceNumbers(peer)
 
 	connection.SendCurrentRoutingTable(connection.GetAllNeighbors())
