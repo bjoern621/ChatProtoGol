@@ -11,7 +11,7 @@ import (
 // handleConnect processes a connection request from a peer.
 // It adds the (new) peer to the routing table with a hop count of 1.
 // It sends an acknowledgment back to the sender.
-// It sends the current routing table to all neighbors (inluding the new peer).
+// It sends the current routing table to all neighbors (including the new peer).
 func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 	logger.Infof("CONN FROM %v", packet.Header.SourceAddr)
 
