@@ -16,7 +16,7 @@ import (
 )
 
 type Peer struct {
-	address netip.Addr
+	Address netip.Addr
 }
 
 var (
@@ -26,7 +26,7 @@ var (
 // NewPeer creates a new Peer instance with the given address.
 func NewPeer(address netip.Addr) *Peer {
 	peer := &Peer{
-		address: address,
+		Address: address,
 	}
 	peers[address] = peer
 	return peer
@@ -43,7 +43,7 @@ func GetPeer(addr netip.Addr) (p *Peer, exists bool) {
 // Delete removes the peer from the managed peers.
 // This should be called when the peer is no longer needed, such as after a disconnect.
 func (p *Peer) Delete() {
-	delete(peers, p.address)
+	delete(peers, p.Address)
 }
 
 // SendNewTo sends a packet to the peer at the specified address and port.
@@ -67,7 +67,7 @@ func (p *Peer) sendNewTo(addrPort netip.AddrPort, msgType byte, lastBit bool, pa
 	packet := &pkt.Packet{
 		Header: pkt.Header{
 			SourceAddr: socket.GetLocalAddress().AddrPort().Addr().As4(),
-			DestAddr:   p.address.As4(),
+			DestAddr:   p.Address.As4(),
 			Control:    pkt.MakeControlByte(msgType, lastBit, common.TEAM_ID),
 			TTL:        common.INITIAL_TTL,
 			SeqNum:     seqNum,
@@ -114,7 +114,7 @@ func (p *Peer) sendPacketTo(addrPort netip.AddrPort, packet *pkt.Packet) error {
 // SendNew sends a packet to the peer using the routing table.
 // Timeouts and resends are handled.
 func (p *Peer) SendNew(msgType byte, lastBit bool, payload []byte) error {
-	nextHopAddrPort, found := GetNextHop(p.address)
+	nextHopAddrPort, found := GetNextHop(p.Address)
 	if !found {
 		return errors.New("no next hop found for the peer")
 	}
@@ -149,22 +149,22 @@ func (p *Peer) SendAcknowledgment(seqNum [4]byte) {
 	ackPacket := &pkt.Packet{
 		Header: pkt.Header{
 			SourceAddr: socket.GetLocalAddress().AddrPort().Addr().As4(),
-			DestAddr:   p.address.As4(),
+			DestAddr:   p.Address.As4(),
 			Control:    pkt.MakeControlByte(pkt.MsgTypeAcknowledgment, true, common.TEAM_ID),
 			SeqNum:     seqNum,
 		},
 	}
 	pkt.SetChecksum(ackPacket)
 
-	nextHop, found := GetNextHop(p.address)
+	nextHop, found := GetNextHop(p.Address)
 	if !found {
-		logger.Warnf("No next hop found for peer %v when sending acknowledgment", p.address)
+		logger.Warnf("No next hop found for peer %v when sending acknowledgment", p.Address)
 		return
 	}
 
 	err := p.sendPacketTo(nextHop, ackPacket)
 	if err != nil {
-		logger.Warnf("Failed to send acknowledgment to peer %v: %v", p.address, err)
+		logger.Warnf("Failed to send acknowledgment to peer %v: %v", p.Address, err)
 		return
 	}
 

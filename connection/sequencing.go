@@ -63,18 +63,18 @@ func addOpenAck(peer *Peer, packet *pkt.Packet) {
 
 // handleAckTimeout is called when an acknowledgment timeout occurs.
 func handleAckTimeout(peer *Peer, packet *pkt.Packet) {
-	fmt.Printf("ACK timeout for peer %s with sequence number %v\n", peer.address, packet.Header.SeqNum)
+	fmt.Printf("ACK timeout for peer %s with sequence number %v\n", peer.Address, packet.Header.SeqNum)
 
-	nextHop, found := GetNextHop(peer.address)
+	nextHop, found := GetNextHop(peer.Address)
 	if !found {
-		fmt.Printf("Peer %s is no longer reachable, removing open acknowledgment for sequence number %v", peer.address, packet.Header.SeqNum)
+		fmt.Printf("Peer %s is no longer reachable, removing open acknowledgment for sequence number %v", peer.Address, packet.Header.SeqNum)
 		return // Peer no longer reachable (e.g., disconnected)
 	}
 
 	peer.sendPacketTo(nextHop, packet)
 
 	openAck, exists := openAcks[peer][packet.Header.SeqNum] // TODO
-	assert.Assert(exists, "No open acknowledgment found for peer %s with sequence number %v", peer.address, packet.Header.SeqNum)
+	assert.Assert(exists, "No open acknowledgment found for peer %s with sequence number %v", peer.Address, packet.Header.SeqNum)
 
 	openAck.retries--
 	if openAck.retries <= 0 {

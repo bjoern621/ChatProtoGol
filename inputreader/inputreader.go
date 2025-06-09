@@ -66,10 +66,10 @@ func (ir *InputReader) InputLoop() {
 		} else {
 			if _, exists := ir.handlers[Command(command)]; !exists {
 				fmt.Printf("No handlers registered for command: '%s'\n", command)
-			}
-
-			for _, handler := range ir.handlers[Command(command)] {
-				handler(args)
+			} else {
+				for _, handler := range ir.handlers[Command(command)] {
+					handler(args)
+				}
 			}
 		}
 	}
