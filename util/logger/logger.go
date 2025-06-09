@@ -9,12 +9,14 @@ import (
 
 // Errorf prints an error message prefixed with "[ERROR] " and stops execution.
 // After Errorf nothing will be executed anymore.
+// A newline is added to the end of the message.
 func Errorf(format string, v ...any) {
 	log.Fatalf(fmt.Sprintf("[ERROR] %s", format), v...)
 	assert.Never()
 }
 
 // Warnf prints a message prefixed with "[WARN] ".
+// A newline is added to the end of the message.
 func Warnf(format string, v ...any) {
 	log.Printf(fmt.Sprintf("[WARN] %s", format), v...)
 }
@@ -28,6 +30,7 @@ func Panicf(format string, v ...any) {
 }
 
 // Infof prints an informational message prefixed with "[INFO] ".
+// A newline is added to the end of the message.
 func Infof(format string, v ...any) {
 	log.Printf(fmt.Sprintf("[INFO] %s", format), v...)
 }

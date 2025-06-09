@@ -15,7 +15,7 @@ func handleAck(packet *pkt.Packet) {
 	peer, exists := connection.GetPeer(addr)
 	if !exists {
 		// Peer was already removed or never existed
-		// e.g. we send an disconnect message (remove the corresponding peer) and receive an ACK
+		// e.g. we send an disconnect message (and removed the corresponding peer) and receive their ACK
 		return
 	}
 

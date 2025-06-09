@@ -1,12 +1,12 @@
 package connection
 
 import (
-	"fmt"
 	"time"
 
 	"bjoernblessin.de/chatprotogol/common"
 	"bjoernblessin.de/chatprotogol/pkt"
 	"bjoernblessin.de/chatprotogol/util/assert"
+	"bjoernblessin.de/chatprotogol/util/logger"
 )
 
 var sequenceNumbers = make(map[*Peer]uint32)
@@ -18,6 +18,7 @@ type OpenAck struct {
 	retries int
 }
 
+// ClearSequenceNumbers clears the current sequence number and open acknowledgments for the given peer.
 func ClearSequenceNumbers(peer *Peer) {
 	delete(sequenceNumbers, peer)
 
@@ -63,11 +64,11 @@ func addOpenAck(peer *Peer, packet *pkt.Packet) {
 
 // handleAckTimeout is called when an acknowledgment timeout occurs.
 func handleAckTimeout(peer *Peer, packet *pkt.Packet) {
-	fmt.Printf("ACK timeout for peer %s with sequence number %v\n", peer.Address, packet.Header.SeqNum)
+	logger.Warnf("ACK timeout for peer %s with sequence number %v\n", peer.Address, packet.Header.SeqNum)
 
 	nextHop, found := GetNextHop(peer.Address)
 	if !found {
-		fmt.Printf("Peer %s is no longer reachable, removing open acknowledgment for sequence number %v", peer.Address, packet.Header.SeqNum)
+		logger.Infof("Peer %s is no longer reachable, removing open acknowledgment for sequence number %v", peer.Address, packet.Header.SeqNum)
 		return // Peer no longer reachable (e.g., disconnected)
 	}
 
