@@ -29,6 +29,7 @@ var (
 // It uses the sequence number from the packet header to determine if it has already been received.
 // This means it should only be used on packets with an UNIQUE sequence number (i.e., packets that have DestAddr == socket.GetLocalAddress() and have message types that provide sequence numbers).
 // Returns true if the packet is a duplicate (already received), false otherwise.
+// Errors if the sequence number is too far ahead (more than common.RECEIVE_BUFFER_SIZE).
 func isDuplicatePacket(packet *pkt.Packet) (bool, error) {
 	assert.Assert(netip.AddrFrom4(packet.Header.DestAddr) == socket.GetLocalAddress().AddrPort().Addr(), "isDuplicatePacket should only be called for packets destined for us")
 
@@ -41,8 +42,8 @@ func isDuplicatePacket(packet *pkt.Packet) (bool, error) {
 	highest, hasHighest := highestSeqNum[peerAddr]
 	if !hasHighest {
 		// highestSeqNum[peerAddr] = seqNum
-		highestSeqNum[peerAddr] = 0
-		return false, nil // First packet from this peer
+		highestSeqNum[peerAddr] = 0 // TODO
+		return false, nil           // First packet from this peer
 	}
 
 	if seqNum <= highest {
@@ -86,4 +87,16 @@ func isDuplicatePacket(packet *pkt.Packet) (bool, error) {
 
 	assert.Never("Unexpected sequence number logic: seqNum=%d, highest=%d", seqNum, highest)
 	return true, nil
+}
+
+func getHighestContiguousSeqNum(peerAddr netip.Addr) uint32 {
+	seqMu.Lock()
+	defer seqMu.Unlock()
+
+	highest, exists := highestSeqNum[peerAddr]
+	if !exists {
+		return 0
+	}
+
+	return highest
 }

@@ -25,7 +25,10 @@ var (
 )
 
 // NewPeer creates a new Peer instance with the given address.
+// It asserts that no peer with the same address already exists.
 func NewPeer(address netip.Addr) *Peer {
+	assert.Assert(peers[address] == nil, "Peer with this address already exists") // TODO this can happen
+
 	peer := &Peer{
 		Address: address,
 	}
