@@ -29,7 +29,9 @@ func handleMsg(packet *pkt.Packet) {
 
 		sourcePeer.SendAcknowledgment(packet.Header.SeqNum)
 
-		// handle packet (may have missing seqnum, be in wrong order, etc.)
+		trackNewPacket(packet)
+
+		// handle packet (may have missing seqnum, be in wrong order, etc.) BUT NO DUPLICATE CHECK HERE
 
 	} else {
 		// The message is for another peer
