@@ -33,7 +33,7 @@ func processPacket(udpPacket *socket.Packet) {
 	}
 
 	if packet.Header.TTL <= 0 {
-		logger.Infof("Received message with TTL <= 0, dropping packet\n")
+		logger.Infof("Received message with TTL <= 0, dropping packet")
 		return
 	}
 
