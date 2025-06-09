@@ -12,34 +12,42 @@ import (
 
 // HandleConnect processes the "connect" command to establish a connection to a specified IP address and port.
 func HandleConnect(args []string) {
-	if len(args) < 1 {
-		printUsage()
-		return
-	}
+	if len(args) == 1 {
+		if !strings.Contains(args[0], ":") {
+			printUsage()
+			return
+		}
 
-	if strings.Contains(args[0], ":") {
 		parts := strings.Split(args[0], ":")
+
 		if len(parts) != 2 {
 			printUsage()
 			return
 		}
-		args = parts
-	}
 
-	peerIP, err := netip.ParseAddr(args[0])
+		connect(parts[0], parts[1])
+	} else if len(args) == 2 {
+		connect(args[0], args[1])
+	} else {
+		printUsage()
+	}
+}
+
+func connect(ipv4String string, portString string) {
+	peerIP, err := netip.ParseAddr(ipv4String)
 	if err != nil {
-		fmt.Printf("Invalid IP address: %s\n", args[0])
+		fmt.Printf("Invalid IP address: %s\n", ipv4String)
 		return
 	}
 
-	port, err := strconv.Atoi(args[1])
+	port, err := strconv.Atoi(portString)
 	if err != nil {
-		fmt.Printf("Invalid port number: %s\n", args[1])
+		fmt.Printf("Invalid port number: %s\n", portString)
 		return
 	}
 
 	if !peerIP.Is4() {
-		fmt.Printf("The provided IP address is not a valid IPv4 address: %s\n", args[0])
+		fmt.Printf("The provided IP address is not a valid IPv4 address: %s\n", ipv4String)
 		return
 	}
 
