@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"net/netip"
 	"strings"
 
@@ -39,8 +38,6 @@ func HandleSend(args []string) {
 
 		payload := msgBytes[start:end]
 		isLastPacket := end == bytesLen
-
-		fmt.Printf("Sending %d bytes %t\n", len(payload), isLastPacket)
 
 		err := peer.SendNew(pkt.MsgTypeChatMessage, isLastPacket, payload)
 		if err != nil {
