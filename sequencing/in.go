@@ -24,6 +24,15 @@ var (
 
 // TODO probably doesnt handle wrapping of sequence numbers (e.g., if highestSeqNum is 0xFFFFFFFF and we receive a packet with seqNum 0x00000000)
 
+func ClearIncomingSequenceNumbers(peerAddr netip.Addr) {
+	seqMu.Lock()
+	defer seqMu.Unlock()
+
+	delete(highestSeqNum, peerAddr)
+
+	delete(futureSeqNums, peerAddr)
+}
+
 // IsDuplicatePacket checks if the packet is a duplicate, and updates sequencing state.
 // It uses the sequence number from the packet header to determine if it has already been received.
 // This means it should only be used on packets with an UNIQUE sequence number (i.e., packets that have DestAddr == socket.GetLocalAddress() and have message types that provide sequence numbers).

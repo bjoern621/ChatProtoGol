@@ -44,6 +44,7 @@ func (p *Peer) Delete() {
 		RemoveRoutingEntry(p.Address)
 	}
 	sequencing.ClearSequenceNumbers(p.Address)
+	sequencing.ClearIncomingSequenceNumbers(p.Address)
 	reconstruction.ClearPayloadBuffer(p.Address)
 }
 
