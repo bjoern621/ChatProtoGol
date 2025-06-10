@@ -79,11 +79,11 @@ func ParseRoutingTableFromPayload(payload []byte, receivedFrom netip.AddrPort) (
 }
 
 // UpdateRoutingTable updates the routing table with received entries.
-//   - #1 An already existing entry is updated if the new hop count is lower than the existing one.
-//   - #2 New entries are added to the routing table.
-//   - #3 Existing entries that are not present in the new entries are removed if the existing entry's next hop is the host that sent the update and the entry doesn't correspond to the neigbor we received the update from.
-//   - #4 Entries that point to the local host are ignored.
-//   - #5 If the received peer's IPv4 address is not in the routing table or the hop count is greater than 1, it is added with a hop count of 1 and the next hop set to the receivedFrom address. TODO export to connect?
+//  1. An already existing entry is updated if the new hop count is lower than the existing one.
+//  2. New entries are added to the routing table.
+//  3. Existing entries that are not present in the new entries are removed if the existing entry's next hop is the host that sent the update and the entry doesn't correspond to the neigbor we received the update from.
+//  4. Entries that point to the local host are ignored.
+//  5. If the received peer's IPv4 address is not in the routing table or the hop count is greater than 1, it is added with a hop count of 1 and the next hop set to the receivedFrom address. TODO export to connect?
 //
 // For changed entries, the hop count is incremented by one and the NextHop is set to receivedFrom.
 // Gets the routing table from another host and their IPv4 address as parameters.
@@ -129,6 +129,15 @@ func UpdateRoutingTable(receivedTable RoutingTable, receivedFrom netip.AddrPort)
 	return updated
 }
 
+// RemoveRoutingEntry removes a routing entry for a given destination IP address.
+// If the entry does not exist, it does nothing.
+func RemoveRoutingEntry(destinationIP netip.Addr) {
+	_, exists := routingTable.Entries[destinationIP]
+	if exists {
+		delete(routingTable.Entries, destinationIP)
+	}
+}
+
 // AddRoutingEntry adds a new entry to the routing table or updates an existing one if the new hop count is lower than the existing one.
 func AddRoutingEntry(destinationIP netip.Addr, hopCount int, nextHop netip.AddrPort) {
 	existingEntry, exists := routingTable.Entries[destinationIP]
@@ -168,11 +177,12 @@ func GetRoutingTable() RoutingTable {
 }
 
 // IsNeighbor checks if a given peer is a neighbor, meaning it is directly reachable with a hop count of 1.
-func IsNeighbor(peer netip.Addr) bool {
+// It returns a boolean indicating if the peer is a neighbor and if so, the address and port for that neighbor.
+func IsNeighbor(peer netip.Addr) (bool, netip.AddrPort) {
 	entry, exists := routingTable.Entries[peer]
 	if !exists {
-		return false
+		return false, netip.AddrPort{}
 	}
 
-	return entry.HopCount == 1
+	return entry.HopCount == 1, entry.NextHop
 }

@@ -22,7 +22,7 @@ func main() {
 	reader.AddHandler("msg", cmd.HandleSend)
 	reader.AddHandler("file", cmd.HandleSendFile)
 	reader.AddHandler("init", cmd.HandleInit)
-	reader.AddHandler("list", cmd.HandleList)
+	reader.AddHandler("ls", cmd.HandleList)
 	reader.AddHandler("exit", cmd.HandleExit)
 
 	handler.ListenToPackets()

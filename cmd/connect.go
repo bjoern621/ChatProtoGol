@@ -51,17 +51,16 @@ func connect(ipv4String string, portString string) {
 		return
 	}
 
-	if connection.IsNeighbor(peerIP) {
+	if isNeighbor, _ := connection.IsNeighbor(peerIP); isNeighbor {
 		fmt.Printf("Already connected to %s\n", peerIP)
 		return
 	}
 
-	peerAddrPort := netip.AddrPortFrom(peerIP, uint16(port))
-	peer := connection.NewPeer(peerAddrPort.Addr())
-
 	payload := connection.FormatRoutingTableForPayload()
 
-	err = peer.SendNewTo(peerAddrPort, pkt.MsgTypeConnect, true, payload)
+	peerAddrPort := netip.AddrPortFrom(peerIP, uint16(port))
+
+	err = connection.SendNewTo(peerAddrPort, pkt.MsgTypeConnect, true, payload, peerAddrPort.Addr())
 	if err != nil {
 		fmt.Printf("Failed to send connect message: %v\n", err)
 		return

@@ -7,8 +7,6 @@ import (
 	"net"
 	"net/netip"
 
-	"maps"
-
 	"bjoernblessin.de/chatprotogol/common"
 	"bjoernblessin.de/chatprotogol/pkt"
 	"bjoernblessin.de/chatprotogol/reconstruction"
@@ -18,65 +16,55 @@ import (
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
 
+// Peer represents another host in the network.
 type Peer struct {
 	Address netip.Addr
 }
 
-var (
-	peers = make(map[netip.Addr]*Peer) // Maps IPv4 addresses to Peer instances
-)
-
-// NewPeer creates a new Peer instance with the given address.
-// It asserts that no peer with the same address already exists.
-func NewPeer(address netip.Addr) *Peer {
-	assert.Assert(peers[address] == nil, "Peer with this address already exists") // TODO this can happen
-
-	peer := &Peer{
-		Address: address,
-	}
-	peers[address] = peer
-	return peer
-}
-
+// GetPeer retrieves a peer by its address.
+// It always returns a new Peer instance.
+// Uses the routing table to check if the peer exists.
 func GetPeer(addr netip.Addr) (p *Peer, exists bool) {
-	peer, exists := peers[addr]
+	_, exists = routingTable.Entries[addr]
 	if !exists {
 		return nil, false
 	}
-	return peer, true
+	return &Peer{Address: addr}, true
 }
 
 // Delete removes the peer from the managed peers.
 // This should be called when the peer is no longer needed, such as after a disconnect.
 // Also clears routing entries, sequence numbers, payload buffers (msg / file transfer).
 func (p *Peer) Delete() {
-	delete(peers, p.Address)
-
-	nextHop, found := GetNextHop(p.Address)
-	assert.Assert(found, "Next hop for peer %s not found but should be available because the peer was found", p.Address)
-	RemoveRoutingEntriesWithNextHop(nextHop)
+	if is, addrPort := IsNeighbor(p.Address); is {
+		// Remove all peers that are routed through this peer from the routing table.
+		RemoveRoutingEntriesWithNextHop(addrPort)
+	} else {
+		// If the peer is not a neighbor, we still need to clear the peer's routing entry.
+		RemoveRoutingEntry(p.Address)
+	}
 	sequencing.ClearSequenceNumbers(p.Address)
 	reconstruction.ClearPayloadBuffer(p.Address)
 }
 
 // SendNewTo sends a packet to the peer at the specified address and port.
 // Timeouts and resends are handled.
-func (p *Peer) SendNewTo(addrPort netip.AddrPort, msgType byte, lastBit bool, payload pkt.Payload) error {
-	seqNum := sequencing.GetNextSequenceNumber(p.Address)
+func SendNewTo(addrPort netip.AddrPort, msgType byte, lastBit bool, payload pkt.Payload, destinationIP netip.Addr) error {
+	seqNum := sequencing.GetNextSequenceNumber(destinationIP)
 
-	packet, err := p.sendNewTo(addrPort, msgType, lastBit, payload, seqNum)
+	packet, err := sendNewTo(addrPort, msgType, lastBit, payload, seqNum, destinationIP)
 	if err != nil {
 		return err
 	}
 
-	sequencing.AddOpenAck(p.Address, packet.Header.SeqNum, func() {
-		nextHop, found := GetNextHop(p.Address)
+	sequencing.AddOpenAck(destinationIP, packet.Header.SeqNum, func() {
+		nextHop, found := GetNextHop(destinationIP)
 		if !found {
-			logger.Infof("Peer %s is no longer reachable, removing open acknowledgment for sequence number %v", p.Address, packet.Header.SeqNum)
+			logger.Infof("Peer %s is no longer reachable, removing open acknowledgment for sequence number %v", destinationIP, packet.Header.SeqNum)
 			return // Peer no longer reachable (e.g., disconnected)
 		}
 
-		p.sendPacketTo(nextHop, packet)
+		_ = sendPacketTo(nextHop, packet)
 	})
 
 	return nil
@@ -84,11 +72,11 @@ func (p *Peer) SendNewTo(addrPort netip.AddrPort, msgType byte, lastBit bool, pa
 
 // sendNewTo is a helper function that constructs and sends a packet to the peer.
 // It does not handle timeouts or resends.
-func (p *Peer) sendNewTo(addrPort netip.AddrPort, msgType byte, lastBit bool, payload pkt.Payload, seqNum [4]byte) (*pkt.Packet, error) {
+func sendNewTo(addrPort netip.AddrPort, msgType byte, lastBit bool, payload pkt.Payload, seqNum [4]byte, destinationIP netip.Addr) (*pkt.Packet, error) {
 	packet := &pkt.Packet{
 		Header: pkt.Header{
 			SourceAddr: socket.GetLocalAddress().AddrPort().Addr().As4(),
-			DestAddr:   p.Address.As4(),
+			DestAddr:   destinationIP.As4(),
 			Control:    pkt.MakeControlByte(msgType, lastBit, common.TEAM_ID),
 			TTL:        common.INITIAL_TTL,
 			SeqNum:     seqNum,
@@ -97,7 +85,7 @@ func (p *Peer) sendNewTo(addrPort netip.AddrPort, msgType byte, lastBit bool, pa
 	}
 	pkt.SetChecksum(packet)
 
-	err := p.sendPacketTo(addrPort, packet)
+	err := sendPacketTo(addrPort, packet)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +104,7 @@ var msgTypeNames = map[byte]string{
 }
 
 // sendPacketTo sends the packet to the specified address and port.
-func (p *Peer) sendPacketTo(addrPort netip.AddrPort, packet *pkt.Packet) error {
+func sendPacketTo(addrPort netip.AddrPort, packet *pkt.Packet) error {
 	nextHop := &net.UDPAddr{
 		IP:   addrPort.Addr().AsSlice(),
 		Port: int(addrPort.Port()),
@@ -140,7 +128,7 @@ func (p *Peer) SendNew(msgType byte, lastBit bool, payload pkt.Payload) error {
 		return errors.New("no next hop found for the peer")
 	}
 
-	return p.SendNewTo(nextHopAddrPort, msgType, lastBit, payload)
+	return SendNewTo(nextHopAddrPort, msgType, lastBit, payload, p.Address)
 }
 
 // Forward forwards a packet to the peer.
@@ -163,7 +151,10 @@ func (p *Peer) Forward(packet *pkt.Packet) error {
 	nextHop, exists := GetNextHop(destPeer.Address)
 	assert.Assert(exists == true, "Next hop should not be nil because a peer was found")
 
-	p.sendPacketTo(nextHop, packet)
+	err := sendPacketTo(nextHop, packet)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -196,7 +187,7 @@ func (p *Peer) SendAcknowledgment(seqNum [4]byte) {
 	nextHop, found := GetNextHop(p.Address)
 	assert.Assert(found, "Next hop should not be nil when sending acknowledgment")
 
-	err := p.sendPacketTo(nextHop, ackPacket)
+	err := sendPacketTo(nextHop, ackPacket)
 	if err != nil {
 		logger.Warnf("Failed to send acknowledgment to peer %v: %v", p.Address, err)
 		return
@@ -205,21 +196,13 @@ func (p *Peer) SendAcknowledgment(seqNum [4]byte) {
 	return
 }
 
-// GetAllPeers returns a copy of the current peers map.
-func GetAllPeers() map[netip.Addr]*Peer {
-	peersCopy := make(map[netip.Addr]*Peer, len(peers))
-
-	maps.Copy(peersCopy, peers)
-	return peersCopy
-}
-
 // GetAllNeighbors returns a map of all neighbors (peers that are directly connected).
 func GetAllNeighbors() map[netip.Addr]*Peer {
 	neighbors := make(map[netip.Addr]*Peer)
 
-	for addr, peer := range peers {
-		if IsNeighbor(addr) {
-			neighbors[addr] = peer
+	for addr := range routingTable.Entries {
+		if is, _ := IsNeighbor(addr); is {
+			neighbors[addr] = &Peer{Address: addr}
 		}
 	}
 

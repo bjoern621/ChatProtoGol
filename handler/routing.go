@@ -37,11 +37,7 @@ func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 		return
 	}
 
-	logger.Infof("CONN FROM %v", packet.Header.SourceAddr)
-
-	senderAddr := sourceAddr.AddrPort().Addr()
-
-	peer := connection.NewPeer(senderAddr)
+	logger.Infof("CONN FROM %v %v", packet.Header.SourceAddr, packet.Header.SeqNum)
 
 	rt, err := connection.ParseRoutingTableFromPayload(packet.Payload, sourceAddr.AddrPort())
 	if err != nil {
@@ -50,6 +46,8 @@ func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 	}
 	connection.UpdateRoutingTable(rt, sourceAddr.AddrPort())
 
+	peer, exists := connection.GetPeer(sourceAddr.AddrPort().Addr())
+	assert.Assert(exists, "peer should exist because we added it in the routing table")
 	peer.SendAcknowledgment(packet.Header.SeqNum)
 
 	connection.SendCurrentRoutingTable(connection.GetAllNeighbors())
@@ -65,9 +63,9 @@ func handleDisconnect(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 		return
 	}
 
-	logger.Infof("DISCO FROM %v", packet.Header.SourceAddr)
+	logger.Infof("DISCO FROM %v %v", packet.Header.SourceAddr, packet.Header.SeqNum)
 
-	if !connection.IsNeighbor(sourceAddr.AddrPort().Addr()) {
+	if isNeighbor, _ := connection.IsNeighbor(sourceAddr.AddrPort().Addr()); !isNeighbor {
 		logger.Warnf("Received disconnect from non-neighbor peer %v", sourceAddr.AddrPort().Addr())
 		return
 	}
@@ -94,7 +92,7 @@ func handleRoutingTableUpdate(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 		return
 	}
 
-	logger.Infof("ROUTING FROM %v", packet.Header.SourceAddr)
+	logger.Infof("ROUTING FROM %v %v", packet.Header.SourceAddr, packet.Header.SeqNum)
 
 	rt, err := connection.ParseRoutingTableFromPayload(packet.Payload, sourceAddr.AddrPort())
 	if err != nil {
