@@ -1,5 +1,5 @@
 // Package reconstruction handles out-of-order and missing seq nums packets.
-// It holds buffers for future packets bounded by common.RECEIVE_BUFFER_SIZE.
+// It can buffer "future" packets (packets that are received but can't be used yet).
 // It is not responsible for detecting duplicates, that is handled in the sequencing package.
 package reconstruction
 

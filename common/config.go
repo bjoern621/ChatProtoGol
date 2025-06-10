@@ -6,4 +6,4 @@ const ACK_TIMEOUT_SECONDS = 5
 const RETRIES_PER_PACKET = 2
 const TEAM_ID = 0x2
 const UDP_BUFFER_SIZE_BYTES = 1500 // Number of bytes to read from socket per packet (1500 is common MTU size for Ethernet)
-const RECEIVE_BUFFER_SIZE = 1000   // Number of packets to buffer (for reconstruction) when receiving a message or file per peer
+const RECEIVE_BUFFER_SIZE = 1000   // Size of sequencing buffer per peer

@@ -12,6 +12,7 @@ import (
 	"bjoernblessin.de/chatprotogol/common"
 	"bjoernblessin.de/chatprotogol/pkt"
 	"bjoernblessin.de/chatprotogol/reconstruction"
+	"bjoernblessin.de/chatprotogol/sequencing"
 	"bjoernblessin.de/chatprotogol/socket"
 	"bjoernblessin.de/chatprotogol/util/assert"
 	"bjoernblessin.de/chatprotogol/util/logger"
@@ -47,28 +48,28 @@ func GetPeer(addr netip.Addr) (p *Peer, exists bool) {
 
 // Delete removes the peer from the managed peers.
 // This should be called when the peer is no longer needed, such as after a disconnect.
-// Also clers routing entries, sequence numbers, payload buffers (msg / file transfer).
+// Also clears routing entries, sequence numbers, payload buffers (msg / file transfer).
 func (p *Peer) Delete() {
 	delete(peers, p.Address)
 
 	nextHop, found := GetNextHop(p.Address)
 	assert.Assert(found, "Next hop for peer %s not found but should be available because the peer was found", p.Address)
 	RemoveRoutingEntriesWithNextHop(nextHop)
-	ClearSequenceNumbers(p.Address)
+	sequencing.ClearSequenceNumbers(p.Address)
 	reconstruction.ClearPayloadBuffer(p.Address)
 }
 
 // SendNewTo sends a packet to the peer at the specified address and port.
 // Timeouts and resends are handled.
 func (p *Peer) SendNewTo(addrPort netip.AddrPort, msgType byte, lastBit bool, payload pkt.Payload) error {
-	seqNum := getNextSequenceNumber(p.Address)
+	seqNum := sequencing.GetNextSequenceNumber(p.Address)
 
 	packet, err := p.sendNewTo(addrPort, msgType, lastBit, payload, seqNum)
 	if err != nil {
 		return err
 	}
 
-	addOpenAck(p.Address, packet.Header.SeqNum, func() {
+	sequencing.AddOpenAck(p.Address, packet.Header.SeqNum, func() {
 		nextHop, found := GetNextHop(p.Address)
 		if !found {
 			logger.Infof("Peer %s is no longer reachable, removing open acknowledgment for sequence number %v", p.Address, packet.Header.SeqNum)

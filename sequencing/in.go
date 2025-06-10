@@ -1,10 +1,7 @@
-// This file is concerned about sequencing packets.
-// 	sequenceNumber uint32
-// It can detect out-of-order packets and handle them accordingly.
-// It checks duplicate packets and manages the sequence number for each peer.
-
-// It is NOT concerned about ordering packets.
-
+// Package sequencing handles the sequencing of packets.
+// On the receiving side, it checks if a packet is a duplicate.
+// It does not handle re-order packets, but it tracks their sequence numbers to detect duplicates packets.
+// On the sending side, it provides a unique sequence number for each peer.
 package sequencing
 
 import (
@@ -44,7 +41,7 @@ func IsDuplicatePacket(packet *pkt.Packet) (bool, error) {
 	highest, hasHighest := highestSeqNum[peerAddr]
 	if !hasHighest {
 		// highestSeqNum[peerAddr] = seqNum
-		highestSeqNum[peerAddr] = 0 // TODO
+		highestSeqNum[peerAddr] = 0 // TODO may not be correct, what if the first packet has a seqNum like 10?
 		return false, nil           // First packet from this peer
 	}
 
@@ -73,7 +70,7 @@ func IsDuplicatePacket(packet *pkt.Packet) (bool, error) {
 
 		return false, nil
 	} else if seqNum > highest+1 {
-		// Out-of-order, store for future
+		// Out-of-order, store seq num for future
 
 		if seqNum-highest > common.RECEIVE_BUFFER_SIZE {
 			return true, errors.New("Received packet with sequence number too far ahead, dropping packet")

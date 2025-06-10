@@ -5,6 +5,7 @@ import (
 
 	"bjoernblessin.de/chatprotogol/connection"
 	"bjoernblessin.de/chatprotogol/pkt"
+	"bjoernblessin.de/chatprotogol/sequencing"
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
 
@@ -19,5 +20,5 @@ func handleAck(packet *pkt.Packet) {
 		return
 	}
 
-	connection.RemoveOpenAck(peer.Address, packet.Header.SeqNum)
+	sequencing.RemoveOpenAck(peer.Address, packet.Header.SeqNum)
 }

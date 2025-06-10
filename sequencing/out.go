@@ -1,4 +1,4 @@
-package connection
+package sequencing
 
 import (
 	"net/netip"
@@ -29,8 +29,8 @@ func ClearSequenceNumbers(peerAddr netip.Addr) {
 	}
 }
 
-// getNextSequenceNumber returns the next sequence number for the given address.
-func getNextSequenceNumber(peerAddr netip.Addr) [4]byte {
+// GetNextSequenceNumber returns the next sequence number for the given address.
+func GetNextSequenceNumber(peerAddr netip.Addr) [4]byte {
 	seqNum, exists := sequenceNumbers[peerAddr]
 	if !exists {
 		seqNum = 0
@@ -46,9 +46,9 @@ func getNextSequenceNumber(peerAddr netip.Addr) [4]byte {
 	}
 }
 
-// addOpenAck adds a sequence number to the open acknowledgments for the given peer and starts a new timeout timer.
+// AddOpenAck adds a sequence number to the open acknowledgments for the given peer and starts a new timeout timer.
 // After the timeout, it will call the provided resend function to resend the packet.
-func addOpenAck(peerAddr netip.Addr, seqNum [4]byte, resendFunc func()) {
+func AddOpenAck(peerAddr netip.Addr, seqNum [4]byte, resendFunc func()) {
 	if _, exists := openAcks[peerAddr]; !exists {
 		openAcks[peerAddr] = map[[4]byte]*OpenAck{}
 	}
@@ -66,14 +66,6 @@ func handleAckTimeout(peerAddr netip.Addr, seqNum [4]byte, resendFunc func()) {
 	logger.Warnf("ACK timeout for peer %s with sequence number %v\n", peerAddr, seqNum)
 
 	resendFunc()
-
-	// nextHop, found := GetNextHop(peerAddr)
-	// if !found {
-	// 	logger.Infof("Peer %s is no longer reachable, removing open acknowledgment for sequence number %v", peerAddr, packet.Header.SeqNum)
-	// 	return // Peer no longer reachable (e.g., disconnected)
-	// }
-
-	// peer.sendPacketTo(nextHop, packet)
 
 	openAck, exists := openAcks[peerAddr][seqNum]
 	assert.Assert(exists, "No open acknowledgment found for peer %s with sequence number %v", peerAddr, seqNum) // TODO may fail?
