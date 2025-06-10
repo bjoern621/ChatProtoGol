@@ -10,7 +10,7 @@ import (
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
 
-func HandleSend(args []string) {
+func HandleSend(args []string) { // TODO blocking
 	if len(args) < 2 {
 		println("Usage: msg <IPv4 address> <message>")
 		return

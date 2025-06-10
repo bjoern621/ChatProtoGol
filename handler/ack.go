@@ -19,5 +19,5 @@ func handleAck(packet *pkt.Packet) {
 		return
 	}
 
-	connection.RemoveOpenAck(peer, packet.Header.SeqNum)
+	connection.RemoveOpenAck(peer.Address, packet.Header.SeqNum)
 }

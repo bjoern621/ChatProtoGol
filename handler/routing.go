@@ -1,11 +1,11 @@
 package handler
 
 import (
-	"fmt"
 	"net"
 
 	"bjoernblessin.de/chatprotogol/connection"
 	"bjoernblessin.de/chatprotogol/pkt"
+	"bjoernblessin.de/chatprotogol/sequencing"
 	"bjoernblessin.de/chatprotogol/util/assert"
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
@@ -14,7 +14,7 @@ import (
 // If it is, it sends an acknowledgment back to the sender.
 // Returns true if the packet was handled (duplicate or errornous packet), false otherwise.
 func handleRoutingDuplicate(packet *pkt.Packet, sourceAddr *net.UDPAddr) (handled bool) {
-	duplicate, dupErr := isDuplicatePacket(packet)
+	duplicate, dupErr := sequencing.IsDuplicatePacket(packet)
 	if dupErr != nil {
 		return true
 	} else if duplicate {
@@ -80,8 +80,6 @@ func handleDisconnect(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 	peer.SendAcknowledgment(packet.Header.SeqNum)
 
 	peer.Delete()
-	connection.RemoveRoutingEntriesWithNextHop(sourceAddr.AddrPort())
-	connection.ClearSequenceNumbers(peer)
 
 	connection.SendCurrentRoutingTable(connection.GetAllNeighbors())
 }
@@ -93,7 +91,6 @@ func handleDisconnect(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 func handleRoutingTableUpdate(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 	handled := handleRoutingDuplicate(packet, sourceAddr)
 	if handled {
-		fmt.Printf("duplicate routing table")
 		return
 	}
 
@@ -114,7 +111,7 @@ func handleRoutingTableUpdate(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 	}
 	peer.SendAcknowledgment(packet.Header.SeqNum)
 
-	if routingTableChanged {
+	if routingTableChanged { // TODO resend update messages change
 		neighbors := connection.GetAllNeighbors()
 		delete(neighbors, sourceAddr.AddrPort().Addr()) // Exclude the sender from the update
 

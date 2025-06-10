@@ -3,7 +3,6 @@ package cmd
 import (
 	"bjoernblessin.de/chatprotogol/connection"
 	"bjoernblessin.de/chatprotogol/pkt"
-	"bjoernblessin.de/chatprotogol/util/assert"
 )
 
 func HandleExit(args []string) {
@@ -17,10 +16,6 @@ func HandleExit(args []string) {
 		}
 
 		neighbor.Delete()
-		nextHop, found := connection.GetNextHop(neighbor.Address)
-		assert.Assert(found)
-		connection.RemoveRoutingEntriesWithNextHop(nextHop)
-		connection.ClearSequenceNumbers(neighbor)
 
 		connection.SendCurrentRoutingTable(connection.GetAllNeighbors())
 	}

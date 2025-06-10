@@ -5,7 +5,6 @@ import (
 
 	"bjoernblessin.de/chatprotogol/connection"
 	"bjoernblessin.de/chatprotogol/pkt"
-	"bjoernblessin.de/chatprotogol/util/assert"
 )
 
 // HandleDisconnect processes the "disconnect" command to disconnect from a specified peer.
@@ -35,12 +34,7 @@ func HandleDisconnect(args []string) {
 		return
 	}
 
-	nextHop, found := connection.GetNextHop(peerIP)
-	assert.Assert(found, "Next hop for peer %s not found but should be available because the peer was found", peerIP)
-
 	peer.Delete()
-	connection.RemoveRoutingEntriesWithNextHop(nextHop)
-	connection.ClearSequenceNumbers(peer)
 
 	connection.SendCurrentRoutingTable(connection.GetAllNeighbors())
 }
