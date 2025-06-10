@@ -86,18 +86,17 @@ func handleMsg(packet *pkt.Packet) {
 		}
 		slices.Sort(sortedSeqNums)
 
-		fmt.Printf("MSG %v: ", sourcePeer.Address)
-
+		var completeMsg []byte
 		for _, seqNum := range sortedSeqNums {
 			var seqNumBytes [4]byte
 			binary.BigEndian.PutUint32(seqNumBytes[:], seqNum)
 			payload, exists := payloadBuffer[sourcePeer].payloads[seqNumBytes]
 			assert.Assert(exists, "Payload should exist for sequence number %d", seqNum)
 
-			fmt.Printf("%s ", payload) // TODO splitted codepoints
+			completeMsg = append(completeMsg, payload...)
 		}
 
-		fmt.Println()
+		fmt.Printf("MSG %v: %s\n", sourcePeer.Address, completeMsg)
 
 		delete(payloadBuffer, sourcePeer)
 	} else {
