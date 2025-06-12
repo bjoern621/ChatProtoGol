@@ -24,7 +24,7 @@ import (
 //	|(4 bits)|(1 bit) |(3 bits)|(8 bits)|                                   |
 //	+--------+--------+--------+--------+--------+--------+--------+--------+
 //	|                                                                       |
-//	|                   Sequence Number (32 bits)                           |
+//	|                   Packet Number (32 bits)                             |
 //	|                                                                       |
 //	+--------+--------+--------+--------+--------+--------+--------+--------+
 //
@@ -35,7 +35,7 @@ type Header struct {
 	Control    byte    // Control byte containing: Message Type (4 bits), Last Bit (1 bit), Team ID (3 bits)
 	TTL        byte    // Time to live (8 bits)
 	Checksum   [2]byte // Checksum (16 bits)
-	SeqNum     [4]byte // Sequence number (32 bits)
+	PktNum     [4]byte // Packet number (32 bits)
 }
 
 // Payload represents the data carried by the packet.
@@ -67,7 +67,7 @@ func ParsePacket(data []byte) (*Packet, error) {
 		Control:    data[8],
 		TTL:        data[9],
 		Checksum:   [2]byte{data[10], data[11]},
-		SeqNum:     [4]byte{data[12], data[13], data[14], data[15]},
+		PktNum:     [4]byte{data[12], data[13], data[14], data[15]},
 	}
 
 	payload := make(Payload, len(data)-16)
@@ -89,7 +89,7 @@ func (p *Packet) ToByteArray() []byte {
 	data = append(data, p.Header.Control)
 	data = append(data, p.Header.TTL)
 	data = append(data, p.Header.Checksum[:]...)
-	data = append(data, p.Header.SeqNum[:]...)
+	data = append(data, p.Header.PktNum[:]...)
 	data = append(data, p.Payload...)
 
 	return data
@@ -126,7 +126,7 @@ func MakeControlByte(msgType byte, lastBit bool, teamID byte) byte {
 }
 
 func (p *Packet) String() string {
-	seqNum := uint32(p.Header.SeqNum[0])<<24 | uint32(p.Header.SeqNum[1])<<16 | uint32(p.Header.SeqNum[2])<<8
+	seqNum := uint32(p.Header.PktNum[0])<<24 | uint32(p.Header.PktNum[1])<<16 | uint32(p.Header.PktNum[2])<<8
 
 	return "{ " +
 		fmt.Sprintf("Src:%d.%d.%d.%d ", p.Header.SourceAddr[0], p.Header.SourceAddr[1], p.Header.SourceAddr[2], p.Header.SourceAddr[3]) +

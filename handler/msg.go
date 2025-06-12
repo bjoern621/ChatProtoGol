@@ -25,11 +25,11 @@ func handleMsg(packet *pkt.Packet) {
 		} else if duplicate {
 			peer, exists := connection.GetPeer(netip.AddrFrom4(packet.Header.SourceAddr))
 			assert.Assert(exists, "Duplicate packet should have a peer")
-			peer.SendAcknowledgment(packet.Header.SeqNum)
+			peer.SendAcknowledgment(packet.Header.PktNum)
 			return
 		}
 
-		logger.Infof("MSG RECEIVED %v %d", packet.Header.SourceAddr, packet.Header.SeqNum)
+		logger.Infof("MSG RECEIVED %v %d", packet.Header.SourceAddr, packet.Header.PktNum)
 
 		sourcePeer, found := connection.GetPeer(netip.AddrFrom4(packet.Header.SourceAddr))
 		if !found {
@@ -37,7 +37,7 @@ func handleMsg(packet *pkt.Packet) {
 			return
 		}
 
-		sourcePeer.SendAcknowledgment(packet.Header.SeqNum)
+		sourcePeer.SendAcknowledgment(packet.Header.PktNum)
 
 		// Handle reconstruction of payloads (missing seqnums, out-of-order)
 

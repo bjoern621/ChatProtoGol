@@ -11,7 +11,7 @@ import (
 )
 
 func handleAck(packet *pkt.Packet) {
-	logger.Infof("ACK RECEIVED %v %d", packet.Header.SourceAddr, packet.Header.SeqNum)
+	logger.Infof("ACK RECEIVED %v %d", packet.Header.SourceAddr, packet.Header.PktNum)
 
 	destAddr := netip.AddrFrom4(packet.Header.DestAddr)
 	if destAddr != socket.GetLocalAddress().AddrPort().Addr() {
@@ -30,5 +30,5 @@ func handleAck(packet *pkt.Packet) {
 	// The acknowledgment is for us, remove the open acknowledgment
 
 	sourceAddr := netip.AddrFrom4([4]byte(packet.Header.SourceAddr))
-	sequencing.RemoveOpenAck(sourceAddr, packet.Header.SeqNum)
+	sequencing.RemoveOpenAck(sourceAddr, packet.Header.PktNum)
 }

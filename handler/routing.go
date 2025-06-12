@@ -20,7 +20,7 @@ func handleRoutingDuplicate(packet *pkt.Packet, sourceAddr *net.UDPAddr) (handle
 	} else if duplicate {
 		peer, exists := connection.GetPeer(sourceAddr.AddrPort().Addr())
 		assert.Assert(exists, "Duplicate packet should have a peer")
-		peer.SendAcknowledgment(packet.Header.SeqNum)
+		peer.SendAcknowledgment(packet.Header.PktNum)
 		return true
 	}
 
@@ -37,7 +37,7 @@ func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 		return
 	}
 
-	logger.Infof("CONN FROM %v %v", packet.Header.SourceAddr, packet.Header.SeqNum)
+	logger.Infof("CONN FROM %v %v", packet.Header.SourceAddr, packet.Header.PktNum)
 
 	rt, err := connection.ParseRoutingTableFromPayload(packet.Payload, sourceAddr.AddrPort())
 	if err != nil {
@@ -48,7 +48,7 @@ func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 
 	peer, exists := connection.GetPeer(sourceAddr.AddrPort().Addr())
 	assert.Assert(exists, "peer should exist because we added it in the routing table")
-	peer.SendAcknowledgment(packet.Header.SeqNum)
+	peer.SendAcknowledgment(packet.Header.PktNum)
 
 	connection.SendCurrentRoutingTable(connection.GetAllNeighbors())
 }
@@ -63,7 +63,7 @@ func handleDisconnect(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 		return
 	}
 
-	logger.Infof("DISCO FROM %v %v", packet.Header.SourceAddr, packet.Header.SeqNum)
+	logger.Infof("DISCO FROM %v %v", packet.Header.SourceAddr, packet.Header.PktNum)
 
 	if isNeighbor, _ := connection.IsNeighbor(sourceAddr.AddrPort().Addr()); !isNeighbor {
 		logger.Warnf("Received disconnect from non-neighbor peer %v", sourceAddr.AddrPort().Addr())
@@ -75,7 +75,7 @@ func handleDisconnect(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 		logger.Warnf("Received disconnect from unknown peer %v", sourceAddr.AddrPort().Addr())
 		return
 	}
-	peer.SendAcknowledgment(packet.Header.SeqNum)
+	peer.SendAcknowledgment(packet.Header.PktNum)
 
 	peer.Delete()
 
@@ -92,7 +92,7 @@ func handleRoutingTableUpdate(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 		return
 	}
 
-	logger.Infof("ROUTING FROM %v %v", packet.Header.SourceAddr, packet.Header.SeqNum)
+	logger.Infof("ROUTING FROM %v %v", packet.Header.SourceAddr, packet.Header.PktNum)
 
 	rt, err := connection.ParseRoutingTableFromPayload(packet.Payload, sourceAddr.AddrPort())
 	if err != nil {
@@ -107,7 +107,7 @@ func handleRoutingTableUpdate(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 		logger.Warnf("Received routing table update from unknown peer %v", sourceAddr.AddrPort().Addr())
 		return
 	}
-	peer.SendAcknowledgment(packet.Header.SeqNum)
+	peer.SendAcknowledgment(packet.Header.PktNum)
 
 	if routingTableChanged { // TODO resend update messages change
 		neighbors := connection.GetAllNeighbors()

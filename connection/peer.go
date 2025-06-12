@@ -58,10 +58,10 @@ func SendNewTo(addrPort netip.AddrPort, msgType byte, lastBit bool, payload pkt.
 		return err
 	}
 
-	sequencing.AddOpenAck(destinationIP, packet.Header.SeqNum, func() {
+	sequencing.AddOpenAck(destinationIP, packet.Header.PktNum, func() {
 		nextHop, found := GetNextHop(destinationIP)
 		if !found {
-			logger.Infof("Peer %s is no longer reachable, removing open acknowledgment for sequence number %v", destinationIP, packet.Header.SeqNum)
+			logger.Infof("Peer %s is no longer reachable, removing open acknowledgment for sequence number %v", destinationIP, packet.Header.PktNum)
 			return // Peer no longer reachable (e.g., disconnected)
 		}
 
@@ -80,7 +80,7 @@ func sendNewTo(addrPort netip.AddrPort, msgType byte, lastBit bool, payload pkt.
 			DestAddr:   destinationIP.As4(),
 			Control:    pkt.MakeControlByte(msgType, lastBit, common.TEAM_ID),
 			TTL:        common.INITIAL_TTL,
-			SeqNum:     seqNum,
+			PktNum:     seqNum,
 		},
 		Payload: payload,
 	}
@@ -116,7 +116,7 @@ func sendPacketTo(addrPort netip.AddrPort, packet *pkt.Packet) error {
 		return errors.New("failed to send packet to peer: " + err.Error())
 	}
 
-	logger.Infof("SENT %s %d to %v", msgTypeNames[packet.GetMessageType()], packet.Header.SeqNum, packet.Header.DestAddr)
+	logger.Infof("SENT %s %d to %v", msgTypeNames[packet.GetMessageType()], packet.Header.PktNum, packet.Header.DestAddr)
 
 	return nil
 }
@@ -180,7 +180,7 @@ func (p *Peer) SendAcknowledgment(seqNum [4]byte) {
 			DestAddr:   p.Address.As4(),
 			Control:    pkt.MakeControlByte(pkt.MsgTypeAcknowledgment, true, common.TEAM_ID),
 			TTL:        common.INITIAL_TTL,
-			SeqNum:     seqNum,
+			PktNum:     seqNum,
 		},
 	}
 	pkt.SetChecksum(ackPacket)

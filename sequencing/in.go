@@ -45,7 +45,7 @@ func IsDuplicatePacket(packet *pkt.Packet) (bool, error) {
 	defer seqMu.Unlock()
 
 	peerAddr := netip.AddrFrom4(packet.Header.SourceAddr)
-	seqNum := binary.BigEndian.Uint32(packet.Header.SeqNum[:])
+	seqNum := binary.BigEndian.Uint32(packet.Header.PktNum[:])
 
 	highest, hasHighest := highestSeqNum[peerAddr]
 	if !hasHighest {

@@ -43,7 +43,7 @@ func HandleIncomingMsgPacket(packet *pkt.Packet, sourcePeerAddr netip.Addr) (com
 		}
 	}
 
-	payloadBuffer[sourcePeerAddr].payloads[packet.Header.SeqNum] = packet.Payload
+	payloadBuffer[sourcePeerAddr].payloads[packet.Header.PktNum] = packet.Payload
 
 	if packet.IsLast() {
 		payloadBuffer[sourcePeerAddr].lastBit.received = true
