@@ -5,6 +5,7 @@ import (
 
 	"bjoernblessin.de/chatprotogol/connection"
 	"bjoernblessin.de/chatprotogol/pkt"
+	"bjoernblessin.de/chatprotogol/routing"
 	"bjoernblessin.de/chatprotogol/sequencing"
 	"bjoernblessin.de/chatprotogol/util/assert"
 	"bjoernblessin.de/chatprotogol/util/logger"
@@ -39,12 +40,12 @@ func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 
 	logger.Infof("CONN FROM %v %v", packet.Header.SourceAddr, packet.Header.PktNum)
 
-	rt, err := connection.ParseRoutingTableFromPayload(packet.Payload, sourceAddr.AddrPort())
+	rt, err := routing.ParseRoutingTableFromPayload(packet.Payload, sourceAddr.AddrPort())
 	if err != nil {
 		logger.Warnf("Failed to parse routing table from payload: %v", err)
 		return
 	}
-	connection.UpdateRoutingTable(rt, sourceAddr.AddrPort())
+	routing.UpdateRoutingTable(rt, sourceAddr.AddrPort())
 
 	peer, exists := connection.GetPeer(sourceAddr.AddrPort().Addr())
 	assert.Assert(exists, "peer should exist because we added it in the routing table")
@@ -65,7 +66,7 @@ func handleDisconnect(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 
 	logger.Infof("DISCO FROM %v %v", packet.Header.SourceAddr, packet.Header.PktNum)
 
-	if isNeighbor, _ := connection.IsNeighbor(sourceAddr.AddrPort().Addr()); !isNeighbor {
+	if isNeighbor, _ := routing.IsNeighbor(sourceAddr.AddrPort().Addr()); !isNeighbor {
 		logger.Warnf("Received disconnect from non-neighbor peer %v", sourceAddr.AddrPort().Addr())
 		return
 	}
@@ -94,13 +95,13 @@ func handleRoutingTableUpdate(packet *pkt.Packet, sourceAddr *net.UDPAddr) {
 
 	logger.Infof("ROUTING FROM %v %v", packet.Header.SourceAddr, packet.Header.PktNum)
 
-	rt, err := connection.ParseRoutingTableFromPayload(packet.Payload, sourceAddr.AddrPort())
+	rt, err := routing.ParseRoutingTableFromPayload(packet.Payload, sourceAddr.AddrPort())
 	if err != nil {
 		logger.Warnf("Failed to parse routing table from payload: %v", err)
 		return
 	}
 
-	routingTableChanged := connection.UpdateRoutingTable(rt, sourceAddr.AddrPort())
+	routingTableChanged := routing.UpdateRoutingTable(rt, sourceAddr.AddrPort())
 
 	peer, exists := connection.GetPeer(sourceAddr.AddrPort().Addr())
 	if !exists {

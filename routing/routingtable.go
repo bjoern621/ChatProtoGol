@@ -1,4 +1,4 @@
-package connection
+package routing
 
 import (
 	"errors"
@@ -18,6 +18,10 @@ type RoutingTable struct {
 
 var routingTable = RoutingTable{
 	Entries: make(map[netip.Addr]RouteEntry),
+}
+
+func GetRoutingTableEntries() map[netip.Addr]RouteEntry {
+	return routingTable.Entries
 }
 
 // FormatRoutingTableForPayload formats the routing table for inclusion in a Routing Table Update Message.

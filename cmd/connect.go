@@ -8,6 +8,7 @@ import (
 
 	"bjoernblessin.de/chatprotogol/connection"
 	"bjoernblessin.de/chatprotogol/pkt"
+	"bjoernblessin.de/chatprotogol/routing"
 )
 
 // HandleConnect processes the "connect" command to establish a connection to a specified IP address and port.
@@ -51,12 +52,12 @@ func connect(ipv4String string, portString string) {
 		return
 	}
 
-	if isNeighbor, _ := connection.IsNeighbor(peerIP); isNeighbor {
+	if isNeighbor, _ := routing.IsNeighbor(peerIP); isNeighbor {
 		fmt.Printf("Already connected to %s\n", peerIP)
 		return
 	}
 
-	payload := connection.FormatRoutingTableForPayload()
+	payload := routing.FormatRoutingTableForPayload()
 
 	peerAddrPort := netip.AddrPortFrom(peerIP, uint16(port))
 

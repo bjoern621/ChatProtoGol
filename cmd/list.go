@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"bjoernblessin.de/chatprotogol/connection"
+	"bjoernblessin.de/chatprotogol/routing"
 )
 
 func HandleList(args []string) {
@@ -12,7 +12,7 @@ func HandleList(args []string) {
 		return
 	}
 
-	routingTable := connection.GetRoutingTable()
+	routingTable := routing.GetRoutingTable()
 	if len(routingTable.Entries) == 0 {
 		fmt.Printf("No entries in the routing table.\n")
 		return
