@@ -9,34 +9,43 @@ import (
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
 
-var sequenceNumbers = make(map[netip.Addr]uint32)
-var openAcks = make(map[netip.Addr]map[[4]byte]*OpenAck)
-
 type OpenAck struct {
 	timer   *time.Timer
 	retries int
 }
 
-// ClearSequenceNumbers clears the current sequence number and open acknowledgments for the given peer.
-func ClearSequenceNumbers(peerAddr netip.Addr) {
-	delete(sequenceNumbers, peerAddr)
+type OutgoingPktNumHandler struct {
+	sequenceNumbers map[netip.Addr]uint32
+	openAcks        map[netip.Addr]map[[4]byte]*OpenAck
+}
 
-	if acks, exists := openAcks[peerAddr]; exists {
+func NewOutgoingPktNumHandler() *OutgoingPktNumHandler {
+	return &OutgoingPktNumHandler{
+		sequenceNumbers: make(map[netip.Addr]uint32),
+		openAcks:        make(map[netip.Addr]map[[4]byte]*OpenAck),
+	}
+}
+
+// ClearSequenceNumbers clears the current sequence number and open acknowledgments for the given peer.
+func (h *OutgoingPktNumHandler) ClearSequenceNumbers(peerAddr netip.Addr) {
+	delete(h.sequenceNumbers, peerAddr)
+
+	if acks, exists := h.openAcks[peerAddr]; exists {
 		for seqNum, ack := range acks {
 			ack.timer.Stop()
-			delete(openAcks[peerAddr], seqNum)
+			delete(h.openAcks[peerAddr], seqNum)
 		}
 	}
 }
 
 // GetNextSequenceNumber returns the next sequence number for the given address.
-func GetNextSequenceNumber(peerAddr netip.Addr) [4]byte {
-	seqNum, exists := sequenceNumbers[peerAddr]
+func (h *OutgoingPktNumHandler) GetNextSequenceNumber(peerAddr netip.Addr) [4]byte {
+	seqNum, exists := h.sequenceNumbers[peerAddr]
 	if !exists {
 		seqNum = 0
 	}
 
-	sequenceNumbers[peerAddr] = seqNum + 1
+	h.sequenceNumbers[peerAddr] = seqNum + 1
 
 	return [4]byte{
 		byte(seqNum >> 24),
@@ -48,31 +57,31 @@ func GetNextSequenceNumber(peerAddr netip.Addr) [4]byte {
 
 // AddOpenAck adds a sequence number to the open acknowledgments for the given peer and starts a new timeout timer.
 // After the timeout, it will call the provided resend function to resend the packet.
-func AddOpenAck(peerAddr netip.Addr, seqNum [4]byte, resendFunc func()) {
-	if _, exists := openAcks[peerAddr]; !exists {
-		openAcks[peerAddr] = map[[4]byte]*OpenAck{}
+func (h *OutgoingPktNumHandler) AddOpenAck(peerAddr netip.Addr, seqNum [4]byte, resendFunc func()) {
+	if _, exists := h.openAcks[peerAddr]; !exists {
+		h.openAcks[peerAddr] = map[[4]byte]*OpenAck{}
 	}
 
 	openAck := &OpenAck{
-		timer:   time.AfterFunc(time.Second*common.ACK_TIMEOUT_SECONDS, func() { handleAckTimeout(peerAddr, seqNum, resendFunc) }),
+		timer:   time.AfterFunc(time.Second*common.ACK_TIMEOUT_SECONDS, func() { h.handleAckTimeout(peerAddr, seqNum, resendFunc) }),
 		retries: common.RETRIES_PER_PACKET,
 	}
 
-	openAcks[peerAddr][seqNum] = openAck
+	h.openAcks[peerAddr][seqNum] = openAck
 }
 
 // handleAckTimeout is called when an acknowledgment timeout occurs.
-func handleAckTimeout(peerAddr netip.Addr, seqNum [4]byte, resendFunc func()) {
+func (h *OutgoingPktNumHandler) handleAckTimeout(peerAddr netip.Addr, seqNum [4]byte, resendFunc func()) {
 	logger.Warnf("ACK timeout for peer %s with sequence number %v\n", peerAddr, seqNum)
 
 	resendFunc()
 
-	openAck, exists := openAcks[peerAddr][seqNum]
+	openAck, exists := h.openAcks[peerAddr][seqNum]
 	assert.Assert(exists, "No open acknowledgment found for peer %s with sequence number %v", peerAddr, seqNum) // TODO may fail?
 
 	openAck.retries--
 	if openAck.retries <= 0 {
-		delete(openAcks[peerAddr], seqNum)
+		delete(h.openAcks[peerAddr], seqNum)
 		return // No more retries left, remove the open acknowledgment
 	}
 
@@ -81,12 +90,12 @@ func handleAckTimeout(peerAddr netip.Addr, seqNum [4]byte, resendFunc func()) {
 
 // RemoveOpenAck removes a sequence number from the open acknowledgments for the given peer.
 // If the sequence number does not exist, it does nothing.
-func RemoveOpenAck(peerAddr netip.Addr, seqNum [4]byte) {
-	openAck, exists := openAcks[peerAddr][seqNum]
+func (h *OutgoingPktNumHandler) RemoveOpenAck(peerAddr netip.Addr, seqNum [4]byte) {
+	openAck, exists := h.openAcks[peerAddr][seqNum]
 	if !exists {
 		return
 	}
 
 	openAck.timer.Stop()
-	delete(openAcks[peerAddr], seqNum)
+	delete(h.openAcks[peerAddr], seqNum)
 }

@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"bjoernblessin.de/chatprotogol/connection"
+	"bjoernblessin.de/chatprotogol/handler"
 	"bjoernblessin.de/chatprotogol/pkt"
-	"bjoernblessin.de/chatprotogol/routing"
 )
 
 // HandleConnect processes the "connect" command to establish a connection to a specified IP address and port.
@@ -52,16 +52,26 @@ func connect(ipv4String string, portString string) {
 		return
 	}
 
-	if isNeighbor, _ := routing.IsNeighbor(peerIP); isNeighbor {
+	if isNeighbor, _ := router.IsNeighbor(peerIP); isNeighbor {
 		fmt.Printf("Already connected to %s\n", peerIP)
 		return
 	}
 
-	payload := routing.FormatRoutingTableForPayload()
-
 	peerAddrPort := netip.AddrPortFrom(peerIP, uint16(port))
 
-	err = connection.SendNewTo(peerAddrPort, pkt.MsgTypeConnect, true, payload, peerAddrPort.Addr())
+	packet := connection.BuildPacket(pkt.MsgTypeConnect, true, nil, peerIP)
+
+	go func() {
+		for range handler.SubscribeToReceivedAck(packet) {
+			fmt.Printf("Connection to %s:%d established.\n", peerIP, port)
+			router.AddNeighbor(peerAddrPort)
+			router.RecalculateLocalLSA()
+			router.BuildRoutingTable(socket)
+			return
+		}
+	}()
+
+	err = connection.SendPacketTo(peerAddrPort, packet)
 	if err != nil {
 		fmt.Printf("Failed to send connect message: %v\n", err)
 		return
@@ -69,5 +79,5 @@ func connect(ipv4String string, portString string) {
 }
 
 func printUsage() {
-	fmt.Println("Usage: connect (<IP address> <port> | <IP address:port>) Example: con 10.0.0.2 8080; con 10.0.0.2:8080")
+	fmt.Println("Usage: con (<IP address> <port> | <IP address:port>) Example: con 10.0.0.2 8080; con 10.0.0.2:8080")
 }

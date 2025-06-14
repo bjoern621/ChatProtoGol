@@ -3,8 +3,6 @@ package cmd
 import (
 	"fmt"
 	"net"
-
-	"bjoernblessin.de/chatprotogol/socket"
 )
 
 func HandleInit(args []string) {

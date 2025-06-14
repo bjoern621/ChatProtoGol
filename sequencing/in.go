@@ -12,25 +12,32 @@ import (
 
 	"bjoernblessin.de/chatprotogol/common"
 	"bjoernblessin.de/chatprotogol/pkt"
-	"bjoernblessin.de/chatprotogol/socket"
+	"bjoernblessin.de/chatprotogol/skt"
 	"bjoernblessin.de/chatprotogol/util/assert"
 )
 
-var (
+type IncomingPktNumHandler struct {
 	seqMu         sync.Mutex
-	highestSeqNum map[netip.Addr]uint32          = make(map[netip.Addr]uint32)          // Highest contiguous seq num received per peer
-	futureSeqNums map[netip.Addr]map[uint32]bool = make(map[netip.Addr]map[uint32]bool) // Out-of-order seq nums > highest, bounded by common.RECEIVE_BUFFER_SIZE
-)
+	highestSeqNum map[netip.Addr]uint32          // Highest contiguous seq num received per peer
+	futureSeqNums map[netip.Addr]map[uint32]bool // Out-of-order seq nums > highest, bounded by common.RECEIVE_BUFFER_SIZE
+	socket        skt.Socket
+}
 
-// TODO probably doesnt handle wrapping of sequence numbers (e.g., if highestSeqNum is 0xFFFFFFFF and we receive a packet with seqNum 0x00000000)
+func NewIncomingPktNumHandler(socket skt.Socket) *IncomingPktNumHandler {
+	return &IncomingPktNumHandler{
+		highestSeqNum: make(map[netip.Addr]uint32),
+		futureSeqNums: make(map[netip.Addr]map[uint32]bool),
+		socket:        socket,
+	}
+}
 
-func ClearIncomingSequenceNumbers(peerAddr netip.Addr) {
-	seqMu.Lock()
-	defer seqMu.Unlock()
+func (h *IncomingPktNumHandler) ClearIncomingSequenceNumbers(peerAddr netip.Addr) {
+	h.seqMu.Lock()
+	defer h.seqMu.Unlock()
 
-	delete(highestSeqNum, peerAddr)
+	delete(h.highestSeqNum, peerAddr)
 
-	delete(futureSeqNums, peerAddr)
+	delete(h.futureSeqNums, peerAddr)
 }
 
 // IsDuplicatePacket checks if the packet is a duplicate, and updates sequencing state.
@@ -38,41 +45,41 @@ func ClearIncomingSequenceNumbers(peerAddr netip.Addr) {
 // This means it should only be used on packets with an UNIQUE sequence number (i.e., packets that have DestAddr == socket.GetLocalAddress() and have message types that provide sequence numbers).
 // Returns true if the packet is a duplicate (already received), false otherwise.
 // Errors if the sequence number is too far ahead (more than common.RECEIVE_BUFFER_SIZE).
-func IsDuplicatePacket(packet *pkt.Packet) (bool, error) {
-	assert.Assert(netip.AddrFrom4(packet.Header.DestAddr) == socket.GetLocalAddress().AddrPort().Addr(), "isDuplicatePacket should only be called for packets destined for us")
+func (h *IncomingPktNumHandler) IsDuplicatePacket(packet *pkt.Packet) (bool, error) {
+	assert.Assert(netip.AddrFrom4(packet.Header.DestAddr) == h.socket.MustGetLocalAddress().Addr(), "isDuplicatePacket should only be called for packets destined for us")
 
-	seqMu.Lock()
-	defer seqMu.Unlock()
+	h.seqMu.Lock()
+	defer h.seqMu.Unlock()
 
 	peerAddr := netip.AddrFrom4(packet.Header.SourceAddr)
 	seqNum := binary.BigEndian.Uint32(packet.Header.PktNum[:])
 
-	highest, hasHighest := highestSeqNum[peerAddr]
+	highest, hasHighest := h.highestSeqNum[peerAddr]
 	if !hasHighest {
 		// highestSeqNum[peerAddr] = seqNum
-		highestSeqNum[peerAddr] = 0 // TODO may not be correct, what if the first packet has a seqNum like 10?
-		return false, nil           // First packet from this peer
+		h.highestSeqNum[peerAddr] = 0 // TODO may not be correct, what if the first packet has a seqNum like 10?
+		return false, nil             // First packet from this peer
 	}
 
 	if seqNum <= highest {
 		// seqNum <= highest, so it's a duplicate
 		return true, nil
 	} else if seqNum == highest+1 {
-		highestSeqNum[peerAddr]++
+		h.highestSeqNum[peerAddr]++
 
 		// Advance highest if future packets are now contiguous
 		for {
-			futurePackets, ok := futureSeqNums[peerAddr]
-			nextHighestAlreadyReceived := ok && futurePackets[highestSeqNum[peerAddr]+1]
+			futurePackets, ok := h.futureSeqNums[peerAddr]
+			nextHighestAlreadyReceived := ok && futurePackets[h.highestSeqNum[peerAddr]+1]
 
 			if !nextHighestAlreadyReceived {
 				break
 			}
 
-			highestSeqNum[peerAddr]++
-			delete(futurePackets, highestSeqNum[peerAddr])
+			h.highestSeqNum[peerAddr]++
+			delete(futurePackets, h.highestSeqNum[peerAddr])
 			if len(futurePackets) == 0 {
-				delete(futureSeqNums, peerAddr)
+				delete(h.futureSeqNums, peerAddr)
 			}
 			continue
 		}
@@ -85,10 +92,10 @@ func IsDuplicatePacket(packet *pkt.Packet) (bool, error) {
 			return true, errors.New("Received packet with sequence number too far ahead, dropping packet")
 		}
 
-		if _, ok := futureSeqNums[peerAddr]; !ok {
-			futureSeqNums[peerAddr] = make(map[uint32]bool)
+		if _, ok := h.futureSeqNums[peerAddr]; !ok {
+			h.futureSeqNums[peerAddr] = make(map[uint32]bool)
 		}
-		futureSeqNums[peerAddr][seqNum] = true
+		h.futureSeqNums[peerAddr][seqNum] = true
 
 		return false, nil
 	}
@@ -97,11 +104,11 @@ func IsDuplicatePacket(packet *pkt.Packet) (bool, error) {
 	return true, nil
 }
 
-func GetHighestContiguousSeqNum(peerAddr netip.Addr) uint32 {
-	seqMu.Lock()
-	defer seqMu.Unlock()
+func (h *IncomingPktNumHandler) GetHighestContiguousSeqNum(peerAddr netip.Addr) uint32 {
+	h.seqMu.Lock()
+	defer h.seqMu.Unlock()
 
-	highest, exists := highestSeqNum[peerAddr]
+	highest, exists := h.highestSeqNum[peerAddr]
 	if !exists {
 		return 0
 	}

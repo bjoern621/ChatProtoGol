@@ -9,7 +9,6 @@ import (
 	"slices"
 
 	"bjoernblessin.de/chatprotogol/pkt"
-	"bjoernblessin.de/chatprotogol/sequencing"
 	"bjoernblessin.de/chatprotogol/util/assert"
 )
 
@@ -35,7 +34,7 @@ func ClearPayloadBuffer(peerAddr netip.Addr) {
 // It checks if the packet is the last in a sequence and whether all parts of the message have been received.
 // If the message is complete, it returns the complete message and a flag indicating readiness.
 // The local buffer is cleared after returning the complete message, so the returned message should be copied if needed later.
-func HandleIncomingMsgPacket(packet *pkt.Packet, sourcePeerAddr netip.Addr) (completeMsg []byte, isReady bool) {
+func (r *PktSequenceReconstructor) HandleIncomingMsgPacket(packet *pkt.Packet, sourcePeerAddr netip.Addr) (completeMsg []byte, isReady bool) {
 	if _, exists := payloadBuffer[sourcePeerAddr]; !exists {
 		// Received first packet of a sequence from this peer
 		payloadBuffer[sourcePeerAddr] = &buffer{
@@ -49,7 +48,7 @@ func HandleIncomingMsgPacket(packet *pkt.Packet, sourcePeerAddr netip.Addr) (com
 		payloadBuffer[sourcePeerAddr].lastBit.received = true
 	}
 
-	isMessageComplete := payloadBuffer[sourcePeerAddr].lastBit.received && binary.BigEndian.Uint32(payloadBuffer[sourcePeerAddr].lastBit.seqNum[:]) <= sequencing.GetHighestContiguousSeqNum(sourcePeerAddr)
+	isMessageComplete := payloadBuffer[sourcePeerAddr].lastBit.received && binary.BigEndian.Uint32(payloadBuffer[sourcePeerAddr].lastBit.seqNum[:]) <= r.sequencing.GetHighestContiguousSeqNum(sourcePeerAddr)
 
 	if !isMessageComplete {
 		// The message is not complete yet, we need to wait for more parts

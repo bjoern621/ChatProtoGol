@@ -12,10 +12,22 @@ import (
 	"bjoernblessin.de/chatprotogol/reconstruction"
 	"bjoernblessin.de/chatprotogol/routing"
 	"bjoernblessin.de/chatprotogol/sequencing"
-	"bjoernblessin.de/chatprotogol/socket"
+	"bjoernblessin.de/chatprotogol/skt"
 	"bjoernblessin.de/chatprotogol/util/assert"
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
+
+var socket skt.Socket
+var Router *routing.Router
+var incomingSequencing *sequencing.IncomingPktNumHandler
+var outgoingSequencing *sequencing.OutgoingPktNumHandler
+
+func SetGlobalVars(s skt.Socket, r *routing.Router, in *sequencing.IncomingPktNumHandler, out *sequencing.OutgoingPktNumHandler) {
+	socket = s
+	Router = r
+	incomingSequencing = in
+	outgoingSequencing = out
+}
 
 // Peer represents another host in the network.
 type Peer struct {
@@ -37,36 +49,35 @@ func GetPeer(addr netip.Addr) (p *Peer, exists bool) {
 // This should be called when the peer is no longer needed, such as after a disconnect.
 // Also clears routing entries, sequence numbers, payload buffers (msg / file transfer).
 func (p *Peer) Delete() {
-	if is, addrPort := routing.IsNeighbor(p.Address); is {
+	if is, addrPort := routing.IsNeighbor2(p.Address); is {
 		// Remove all peers that are routed through this peer from the routing table.
 		routing.RemoveRoutingEntriesWithNextHop(addrPort)
 	} else {
 		// If the peer is not a neighbor, we still need to clear the peer's routing entry.
 		routing.RemoveRoutingEntry(p.Address)
 	}
-	sequencing.ClearSequenceNumbers(p.Address)
-	sequencing.ClearIncomingSequenceNumbers(p.Address)
+	outgoingSequencing.ClearSequenceNumbers(p.Address)
+	incomingSequencing.ClearIncomingSequenceNumbers(p.Address)
 	reconstruction.ClearPayloadBuffer(p.Address)
 }
 
 // SendNewTo sends a packet to the peer at the specified address and port.
 // Timeouts and resends are handled.
-func SendNewTo(addrPort netip.AddrPort, msgType byte, lastBit bool, payload pkt.Payload, destinationIP netip.Addr) error {
-	seqNum := sequencing.GetNextSequenceNumber(destinationIP)
-
+// It returns the sequence number used for this packet.
+func SendNewTo(addrPort netip.AddrPort, msgType byte, lastBit bool, payload pkt.Payload, destinationIP netip.Addr, seqNum [4]byte) error {
 	packet, err := sendNewTo(addrPort, msgType, lastBit, payload, seqNum, destinationIP)
 	if err != nil {
 		return err
 	}
 
-	sequencing.AddOpenAck(destinationIP, packet.Header.PktNum, func() {
-		nextHop, found := routing.GetNextHop(destinationIP)
+	outgoingSequencing.AddOpenAck(destinationIP, packet.Header.PktNum, func() {
+		nextHop, found := routing.GetNextHop2(destinationIP)
 		if !found {
 			logger.Infof("Peer %s is no longer reachable, removing open acknowledgment for sequence number %v", destinationIP, packet.Header.PktNum)
 			return // Peer no longer reachable (e.g., disconnected)
 		}
 
-		_ = sendPacketTo(nextHop, packet)
+		_ = SendPacketTo(nextHop, packet)
 	})
 
 	return nil
@@ -77,7 +88,7 @@ func SendNewTo(addrPort netip.AddrPort, msgType byte, lastBit bool, payload pkt.
 func sendNewTo(addrPort netip.AddrPort, msgType byte, lastBit bool, payload pkt.Payload, seqNum [4]byte, destinationIP netip.Addr) (*pkt.Packet, error) {
 	packet := &pkt.Packet{
 		Header: pkt.Header{
-			SourceAddr: socket.GetLocalAddress().AddrPort().Addr().As4(),
+			SourceAddr: socket.MustGetLocalAddress().Addr().As4(),
 			DestAddr:   destinationIP.As4(),
 			Control:    pkt.MakeControlByte(msgType, lastBit, common.TEAM_ID),
 			TTL:        common.INITIAL_TTL,
@@ -87,7 +98,7 @@ func sendNewTo(addrPort netip.AddrPort, msgType byte, lastBit bool, payload pkt.
 	}
 	pkt.SetChecksum(packet)
 
-	err := sendPacketTo(addrPort, packet)
+	err := SendPacketTo(addrPort, packet)
 	if err != nil {
 		return nil, err
 	}
@@ -103,10 +114,12 @@ var msgTypeNames = map[byte]string{
 	pkt.MsgTypeFileTransfer:       "FILE",
 	pkt.MsgTypeResendRequest:      "RESEND",
 	pkt.MsgTypeAcknowledgment:     "ACK",
+	pkt.MsgTypeLSA:                "LSA",
+	pkt.MsgTypeDD:                 "DD",
 }
 
-// sendPacketTo sends the packet to the specified address and port.
-func sendPacketTo(addrPort netip.AddrPort, packet *pkt.Packet) error {
+// SendPacketTo sends the packet to the specified address and port.
+func SendPacketTo(addrPort netip.AddrPort, packet *pkt.Packet) error {
 	nextHop := &net.UDPAddr{
 		IP:   addrPort.Addr().AsSlice(),
 		Port: int(addrPort.Port()),
@@ -125,12 +138,14 @@ func sendPacketTo(addrPort netip.AddrPort, packet *pkt.Packet) error {
 // SendNew sends a packet to the peer using the routing table.
 // Timeouts and resends are handled.
 func (p *Peer) SendNew(msgType byte, lastBit bool, payload pkt.Payload) error {
-	nextHopAddrPort, found := routing.GetNextHop(p.Address)
+	nextHopAddrPort, found := routing.GetNextHop2(p.Address)
 	if !found {
 		return errors.New("no next hop found for the peer")
 	}
 
-	return SendNewTo(nextHopAddrPort, msgType, lastBit, payload, p.Address)
+	seqNum := outgoingSequencing.GetNextSequenceNumber(p.Address)
+
+	return SendNewTo(nextHopAddrPort, msgType, lastBit, payload, p.Address, seqNum)
 }
 
 // Forward forwards a packet to the peer.
@@ -150,10 +165,10 @@ func (p *Peer) Forward(packet *pkt.Packet) error {
 		return errors.New("no peer found for destination address")
 	}
 
-	nextHop, exists := routing.GetNextHop(destPeer.Address)
+	nextHop, exists := routing.GetNextHop2(destPeer.Address)
 	assert.Assert(exists == true, "Next hop should not be nil because a peer was found")
 
-	err := sendPacketTo(nextHop, packet)
+	err := SendPacketTo(nextHop, packet)
 	if err != nil {
 		return err
 	}
@@ -177,7 +192,7 @@ func SendNewAll(msgType byte, lastBit bool, payload pkt.Payload, peerMap map[net
 func (p *Peer) SendAcknowledgment(seqNum [4]byte) {
 	ackPacket := &pkt.Packet{
 		Header: pkt.Header{
-			SourceAddr: socket.GetLocalAddress().AddrPort().Addr().As4(),
+			SourceAddr: socket.MustGetLocalAddress().Addr().As4(),
 			DestAddr:   p.Address.As4(),
 			Control:    pkt.MakeControlByte(pkt.MsgTypeAcknowledgment, true, common.TEAM_ID),
 			TTL:        common.INITIAL_TTL,
@@ -186,10 +201,10 @@ func (p *Peer) SendAcknowledgment(seqNum [4]byte) {
 	}
 	pkt.SetChecksum(ackPacket)
 
-	nextHop, found := routing.GetNextHop(p.Address)
+	nextHop, found := routing.GetNextHop2(p.Address)
 	assert.Assert(found, "Next hop should not be nil when sending acknowledgment")
 
-	err := sendPacketTo(nextHop, ackPacket)
+	err := SendPacketTo(nextHop, ackPacket)
 	if err != nil {
 		logger.Warnf("Failed to send acknowledgment to peer %v: %v", p.Address, err)
 		return
@@ -203,7 +218,7 @@ func GetAllNeighbors() map[netip.Addr]*Peer {
 	neighbors := make(map[netip.Addr]*Peer)
 
 	for addr := range routing.GetRoutingTableEntries() {
-		if is, _ := routing.IsNeighbor(addr); is {
+		if is, _ := routing.IsNeighbor2(addr); is {
 			neighbors[addr] = &Peer{Address: addr}
 		}
 	}
@@ -220,4 +235,38 @@ func SendCurrentRoutingTable(peerMap map[netip.Addr]*Peer) {
 		logger.Warnf("Failed to send routing table update at least one peer: %v", err)
 		return
 	}
+}
+
+func BuildPacket(msgType byte, lastBit bool, payload pkt.Payload, destAddr netip.Addr) *pkt.Packet {
+	return buildPacket(msgType, lastBit, payload, destAddr, outgoingSequencing.GetNextSequenceNumber(destAddr))
+}
+
+func buildPacket(msgType byte, lastBit bool, payload pkt.Payload, destAddr netip.Addr, pktNum [4]byte) *pkt.Packet {
+	packet := &pkt.Packet{
+		Header: pkt.Header{
+			SourceAddr: socket.MustGetLocalAddress().Addr().As4(),
+			DestAddr:   destAddr.As4(),
+			Control:    pkt.MakeControlByte(msgType, lastBit, common.TEAM_ID),
+			TTL:        common.INITIAL_TTL,
+			PktNum:     pktNum,
+		},
+		Payload: payload,
+	}
+	pkt.SetChecksum(packet)
+	return packet
+}
+
+func SendAcknowledgment(peerAddr netip.Addr, pktNum [4]byte) {
+	ackPacket := buildPacket(pkt.MsgTypeAcknowledgment, true, nil, peerAddr, pktNum)
+
+	nextHop, found := Router.GetNextHop(peerAddr)
+	assert.Assert(found, "Next hop should not be nil when sending acknowledgment")
+
+	err := SendPacketTo(nextHop, ackPacket)
+	if err != nil {
+		logger.Warnf("Failed to send acknowledgment to peer %v: %v", peerAddr, err)
+		return
+	}
+
+	return
 }

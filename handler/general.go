@@ -4,14 +4,35 @@ package handler
 
 import (
 	"bjoernblessin.de/chatprotogol/pkt"
-	"bjoernblessin.de/chatprotogol/socket"
+	"bjoernblessin.de/chatprotogol/reconstruction"
+	"bjoernblessin.de/chatprotogol/routing"
+	"bjoernblessin.de/chatprotogol/sequencing"
+	"bjoernblessin.de/chatprotogol/skt"
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
 
-func ListenToPackets() {
+type PacketHandler struct {
+	socket        skt.Socket
+	router        *routing.Router
+	inSequencing  *sequencing.IncomingPktNumHandler
+	outSequencing *sequencing.OutgoingPktNumHandler
+	reconstructor *reconstruction.PktSequenceReconstructor
+}
+
+func NewPacketHandler(socket skt.Socket, router *routing.Router, inSequencing *sequencing.IncomingPktNumHandler, outSequencing *sequencing.OutgoingPktNumHandler, recon *reconstruction.PktSequenceReconstructor) *PacketHandler {
+	return &PacketHandler{
+		socket:        socket,
+		router:        router,
+		inSequencing:  inSequencing,
+		outSequencing: outSequencing,
+		reconstructor: recon,
+	}
+}
+
+func (ph *PacketHandler) ListenToPackets() {
 	go func() {
-		for packet := range socket.Subscribe() {
-			processPacket(packet)
+		for packet := range ph.socket.Subscribe() {
+			ph.processPacket(packet)
 		}
 	}()
 }
@@ -19,7 +40,7 @@ func ListenToPackets() {
 // processPacket processes an incoming UDP packet.
 // It parses the packet, verifies the checksum, checks TTL and handles it based on its message type.
 // This is the general entry for all incoming packets.
-func processPacket(udpPacket *socket.Packet) {
+func (ph *PacketHandler) processPacket(udpPacket *skt.Packet) {
 	packet, err := pkt.ParsePacket(udpPacket.Data)
 	if err != nil {
 		logger.Warnf("Failed to parse packet: %v", err)
@@ -39,15 +60,15 @@ func processPacket(udpPacket *socket.Packet) {
 
 	switch packet.GetMessageType() {
 	case pkt.MsgTypeConnect:
-		handleConnect(packet, udpPacket.Addr)
+		handleConnect(packet, udpPacket.Addr, ph.socket, ph.router, ph.inSequencing)
 	case pkt.MsgTypeDisconnect:
-		handleDisconnect(packet, udpPacket.Addr)
+		handleDisconnect(packet, udpPacket.Addr, ph.inSequencing)
 	case pkt.MsgTypeRoutingTableUpdate:
-		handleRoutingTableUpdate(packet, udpPacket.Addr)
+		handleRoutingTableUpdate(packet, udpPacket.Addr, ph.inSequencing)
 	case pkt.MsgTypeAcknowledgment:
-		handleAck(packet)
+		handleAck(packet, ph.socket, ph.outSequencing)
 	case pkt.MsgTypeChatMessage:
-		handleMsg(packet)
+		handleMsg(packet, ph.socket, ph.inSequencing, ph.reconstructor)
 	default:
 		logger.Warnf("Unhandled packet type: %v from %v to %v", packet.GetMessageType(), packet.Header.SourceAddr, packet.Header.DestAddr)
 		return

@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"bjoernblessin.de/chatprotogol/socket"
+	"bjoernblessin.de/chatprotogol/skt"
 )
 
 type Command string
@@ -16,12 +16,14 @@ type CommandHandler func(args []string)
 type InputReader struct {
 	scanner  *bufio.Scanner
 	handlers map[Command][]CommandHandler
+	socket   skt.Socket
 }
 
-func NewInputReader() *InputReader {
+func NewInputReader(socket skt.Socket) *InputReader {
 	return &InputReader{
 		scanner:  bufio.NewScanner(os.Stdin),
 		handlers: make(map[Command][]CommandHandler),
+		socket:   socket,
 	}
 }
 
@@ -35,7 +37,14 @@ func (ir *InputReader) InputLoop() {
 	fmt.Println("Ready for commands. Type 'exit' to stop, 'help' for a list of commands.")
 
 	for {
-		fmt.Printf("%s > ", socket.GetLocalAddress().AddrPort())
+		addrPort, err := ir.socket.GetLocalAddress()
+		var promptPrefix string
+		if err != nil {
+			promptPrefix = "Socket closed"
+		} else {
+			promptPrefix = addrPort.String()
+		}
+		fmt.Printf("%s > ", promptPrefix)
 
 		if !ir.scanner.Scan() {
 			if err := ir.scanner.Err(); err != nil {

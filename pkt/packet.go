@@ -54,6 +54,8 @@ const (
 	MsgTypeFileTransfer       = 0x4
 	MsgTypeResendRequest      = 0x5
 	MsgTypeAcknowledgment     = 0x6
+	MsgTypeLSA                = 0x7
+	MsgTypeDD                 = 0x8
 )
 
 func ParsePacket(data []byte) (*Packet, error) {

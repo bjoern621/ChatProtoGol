@@ -6,16 +6,26 @@ import (
 	"net"
 
 	"bjoernblessin.de/chatprotogol/cmd"
+	"bjoernblessin.de/chatprotogol/connection"
 	"bjoernblessin.de/chatprotogol/handler"
 	"bjoernblessin.de/chatprotogol/inputreader"
-	"bjoernblessin.de/chatprotogol/socket"
+	"bjoernblessin.de/chatprotogol/reconstruction"
+	"bjoernblessin.de/chatprotogol/routing"
+	"bjoernblessin.de/chatprotogol/sequencing"
+	"bjoernblessin.de/chatprotogol/skt"
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
 
 func main() {
 	log.Println("Running...")
 
-	reader := inputreader.NewInputReader()
+	udpSocket := skt.NewUDPSocket()
+
+	router := routing.NewRouter(udpSocket)
+
+	cmd.SetGlobalVars(udpSocket, router)
+
+	reader := inputreader.NewInputReader(udpSocket)
 
 	reader.AddHandler("con", cmd.HandleConnect)
 	reader.AddHandler("dis", cmd.HandleDisconnect)
@@ -25,9 +35,16 @@ func main() {
 	reader.AddHandler("ls", cmd.HandleList)
 	reader.AddHandler("exit", cmd.HandleExit)
 
+	inSequencing := sequencing.NewIncomingPktNumHandler(udpSocket)
+	outSequencing := sequencing.NewOutgoingPktNumHandler()
+	pktSequenceReconstructor := reconstruction.NewPktSequenceReconstructor(inSequencing)
+
+	handler := handler.NewPacketHandler(udpSocket, router, inSequencing, outSequencing, pktSequenceReconstructor)
 	handler.ListenToPackets()
 
-	localAddr, err := socket.Open(net.IPv4(127, 0, 0, 1))
+	connection.SetGlobalVars(udpSocket, router, inSequencing, outSequencing)
+
+	localAddr, err := udpSocket.Open(net.IPv4(127, 0, 0, 1))
 	if err != nil {
 		logger.Errorf("Failed to open UDP socket: %v", err)
 		return

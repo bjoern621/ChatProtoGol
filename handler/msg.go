@@ -8,18 +8,18 @@ import (
 	"bjoernblessin.de/chatprotogol/pkt"
 	"bjoernblessin.de/chatprotogol/reconstruction"
 	"bjoernblessin.de/chatprotogol/sequencing"
-	"bjoernblessin.de/chatprotogol/socket"
+	"bjoernblessin.de/chatprotogol/skt"
 	"bjoernblessin.de/chatprotogol/util/assert"
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
 
-func handleMsg(packet *pkt.Packet) {
+func handleMsg(packet *pkt.Packet, socket skt.Socket, inSequencing *sequencing.IncomingPktNumHandler, reconstructor *reconstruction.PktSequenceReconstructor) {
 	destAddr := netip.AddrFrom4(packet.Header.DestAddr)
 
-	if destAddr == socket.GetLocalAddress().AddrPort().Addr() {
+	if destAddr == socket.MustGetLocalAddress().Addr() {
 		// The message is for us
 
-		duplicate, dupErr := sequencing.IsDuplicatePacket(packet)
+		duplicate, dupErr := inSequencing.IsDuplicatePacket(packet)
 		if dupErr != nil {
 			return
 		} else if duplicate {
@@ -41,7 +41,7 @@ func handleMsg(packet *pkt.Packet) {
 
 		// Handle reconstruction of payloads (missing seqnums, out-of-order)
 
-		completeMsg, isReady := reconstruction.HandleIncomingMsgPacket(packet, sourcePeer.Address)
+		completeMsg, isReady := reconstructor.HandleIncomingMsgPacket(packet, sourcePeer.Address)
 		if !isReady {
 			return
 		}
