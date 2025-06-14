@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"fmt"
-
-	"bjoernblessin.de/chatprotogol/routing"
 )
 
 func HandleList(args []string) {
@@ -12,14 +10,14 @@ func HandleList(args []string) {
 		return
 	}
 
-	routingTable := routing.GetRoutingTable()
-	if len(routingTable.Entries) == 0 {
+	routingTable := router.GetRoutingTable()
+	if len(routingTable) == 0 {
 		fmt.Printf("No entries in the routing table.\n")
 		return
 	}
 
 	fmt.Printf("Routing Table:\n")
-	for addrPort, entry := range routingTable.Entries {
-		fmt.Printf("  %s -> Hop Count: %d, Next Hop: %s\n", addrPort, entry.HopCount, entry.NextHop)
+	for addrPort, nextHop := range routingTable {
+		fmt.Printf("  %s -> Next Hop: %s\n", addrPort, nextHop)
 	}
 }

@@ -32,10 +32,6 @@ type ee struct {
 	HopCount int
 }
 
-func GetRoutingTable() *Rtable {
-	return &Rtable{}
-}
-
 func IsNeighbor2(addr netip.Addr) (bool, netip.AddrPort) {
 	// This function should check if the address is a neighbor and return the corresponding AddrPort
 	// For now, we return false and an empty AddrPort
