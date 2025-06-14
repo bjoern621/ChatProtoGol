@@ -118,7 +118,54 @@ var msgTypeNames = map[byte]string{
 	pkt.MsgTypeDD:                 "DD",
 }
 
-// SendPacketTo sends the packet to the specified address and port.
+// SendReliableRoutedPacket sends a packet.
+// Reliable: Resends and timeouts are handled.
+// Routed: Uses the routing table to determine the next hop.
+func SendReliableRoutedPacket(packet *pkt.Packet) error {
+	destinationIP := netip.AddrFrom4(packet.Header.DestAddr)
+
+	nextHop, found := router.GetNextHop(destinationIP)
+	if !found {
+		return errors.New("no next hop found for the destination address")
+	}
+
+	err := SendPacketTo(nextHop, packet)
+	if err != nil {
+		return err
+	}
+
+	outgoingSequencing.AddOpenAck(destinationIP, packet.Header.PktNum, func() {
+		nextHop, found := router.GetNextHop(destinationIP) // Get the current next hop again (it may have changed)
+		if !found {
+			logger.Infof("Peer %s is no longer reachable, removing open acknowledgment for packet number %v", destinationIP, packet.Header.PktNum)
+			return // Peer no longer reachable (e.g., disconnected)
+		}
+
+		_ = SendPacketTo(nextHop, packet)
+	})
+
+	return nil
+}
+
+// SendReliablePacketTo sends a packet.
+// Reliable: Resends and timeouts are handled.
+// To: Send the packet to a specific address and port.
+func SendReliablePacketTo(addrPort netip.AddrPort, packet *pkt.Packet) error {
+	destinationAddr := addrPort.Addr()
+
+	err := SendPacketTo(addrPort, packet)
+	if err != nil {
+		return err
+	}
+
+	outgoingSequencing.AddOpenAck(destinationAddr, packet.Header.PktNum, func() {
+		_ = SendPacketTo(addrPort, packet)
+	})
+
+	return nil
+}
+
+// SendPacketTo sends a packet.
 func SendPacketTo(addrPort netip.AddrPort, packet *pkt.Packet) error {
 	nextHop := &net.UDPAddr{
 		IP:   addrPort.Addr().AsSlice(),
@@ -237,7 +284,8 @@ func SendCurrentRoutingTable(peerMap map[netip.Addr]*Peer) {
 	}
 }
 
-func BuildPacket(msgType byte, lastBit bool, payload pkt.Payload, destAddr netip.Addr) *pkt.Packet {
+// BuildSequencedPacket constructs a packet with the next packet number for the destination address.
+func BuildSequencedPacket(msgType byte, lastBit bool, payload pkt.Payload, destAddr netip.Addr) *pkt.Packet {
 	return buildPacket(msgType, lastBit, payload, destAddr, outgoingSequencing.GetNextSequenceNumber(destAddr))
 }
 

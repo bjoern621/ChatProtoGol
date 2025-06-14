@@ -9,6 +9,8 @@ import (
 	"bjoernblessin.de/chatprotogol/connection"
 	"bjoernblessin.de/chatprotogol/handler"
 	"bjoernblessin.de/chatprotogol/pkt"
+	"bjoernblessin.de/chatprotogol/routing"
+	"bjoernblessin.de/chatprotogol/util/logger"
 )
 
 // HandleConnect processes the "connect" command to establish a connection to a specified IP address and port.
@@ -35,7 +37,7 @@ func HandleConnect(args []string) {
 }
 
 func connect(ipv4String string, portString string) {
-	peerIP, err := netip.ParseAddr(ipv4String)
+	addr, err := netip.ParseAddr(ipv4String)
 	if err != nil {
 		fmt.Printf("Invalid IP address: %s\n", ipv4String)
 		return
@@ -47,31 +49,28 @@ func connect(ipv4String string, portString string) {
 		return
 	}
 
-	if !peerIP.Is4() {
+	if !addr.Is4() {
 		fmt.Printf("The provided IP address is not a valid IPv4 address: %s\n", ipv4String)
 		return
 	}
 
-	if isNeighbor, _ := router.IsNeighbor(peerIP); isNeighbor {
-		fmt.Printf("Already connected to %s\n", peerIP)
+	if isNeighbor, _ := router.IsNeighbor(addr); isNeighbor {
+		fmt.Printf("Already connected to %s\n", addr)
 		return
 	}
 
-	peerAddrPort := netip.AddrPortFrom(peerIP, uint16(port))
+	addrPort := netip.AddrPortFrom(addr, uint16(port))
 
-	packet := connection.BuildPacket(pkt.MsgTypeConnect, true, nil, peerIP)
+	packet := connection.BuildSequencedPacket(pkt.MsgTypeConnect, true, nil, addr)
 
 	go func() {
 		for range handler.SubscribeToReceivedAck(packet) {
-			fmt.Printf("Connection to %s:%d established.\n", peerIP, port)
-			router.AddNeighbor(peerAddrPort)
-			router.RecalculateLocalLSA()
-			router.BuildRoutingTable(socket)
-			return
+			handleConnectAck(addrPort)
+			break
 		}
 	}()
 
-	err = connection.SendPacketTo(peerAddrPort, packet)
+	err = connection.SendReliablePacketTo(addrPort, packet)
 	if err != nil {
 		fmt.Printf("Failed to send connect message: %v\n", err)
 		return
@@ -80,4 +79,27 @@ func connect(ipv4String string, portString string) {
 
 func printUsage() {
 	fmt.Println("Usage: con (<IP address> <port> | <IP address:port>) Example: con 10.0.0.2 8080; con 10.0.0.2:8080")
+}
+
+func handleConnectAck(addrPort netip.AddrPort) {
+	fmt.Printf("Connection to %s:%d established.\n", addrPort.Addr(), addrPort.Port())
+
+	router.AddNeighbor(addrPort)
+	router.RecalculateLocalLSA()
+	router.BuildRoutingTable(socket)
+
+	// Send DD packet
+	routingEntries := routing.GetRoutingTableEntries()
+	payload := make(pkt.Payload, 0, len(routingEntries))
+	for addr := range routingEntries {
+		addrBytes := addr.As4()
+		payload = append(payload, addrBytes[:]...)
+	}
+
+	packet := connection.BuildSequencedPacket(pkt.MsgTypeDD, true, payload, addrPort.Addr())
+
+	err := connection.SendReliableRoutedPacket(packet)
+	if err != nil {
+		logger.Warnf("Failed to send database description to %s: %v", addrPort, err)
+	}
 }

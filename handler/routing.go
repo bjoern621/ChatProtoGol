@@ -46,6 +46,21 @@ func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr, socket sock.Sock
 	router.BuildRoutingTable(socket)
 
 	connection.SendAcknowledgment(sourceAddr.AddrPort().Addr(), packet.Header.PktNum)
+
+	// Send DD packet
+	routingEntries := routing.GetRoutingTableEntries()
+	payload := make(pkt.Payload, 0, len(routingEntries))
+	for addr := range routingEntries {
+		addrBytes := addr.As4()
+		payload = append(payload, addrBytes[:]...)
+	}
+
+	ddPacket := connection.BuildSequencedPacket(pkt.MsgTypeDD, true, payload, sourceAddr.AddrPort().Addr())
+
+	err := connection.SendReliableRoutedPacket(ddPacket)
+	if err != nil {
+		logger.Warnf("Failed to send database description to %s: %v", sourceAddr.AddrPort(), err)
+	}
 }
 
 // handleDisconnect processes a disconnect request from a peer.

@@ -14,7 +14,6 @@ func (r *Router) GetNextHop(destinationIP netip.Addr) (addrPort netip.AddrPort, 
 }
 
 // GetRoutingTable returns the current routing table entries.
-// Should be used for printing purposes only.
 func (r *Router) GetRoutingTable() map[netip.Addr]netip.AddrPort {
 	return r.routingTable
 }
