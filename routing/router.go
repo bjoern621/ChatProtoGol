@@ -7,18 +7,18 @@ import (
 )
 
 type Router struct {
-	Lsdb          map[netip.Addr]LSAEntry // Local State Database (LSDB) that holds the Link State Advertisements (LSAs) of every host (including the local LSA)
+	lsdb          map[netip.Addr]LSAEntry // Local State Database (LSDB) that holds the Link State Advertisements (LSAs) of every host (including the local LSA)
 	socket        sock.Socket
-	NeighborTable map[netip.Addr]NeighborEntry
-	RoutingTable  map[netip.Addr]netip.AddrPort // Maps destination IP addresses to the next hop they should use
+	neighborTable map[netip.Addr]NeighborEntry
+	routingTable  map[netip.Addr]netip.AddrPort // Maps destination IP addresses to the next hop they should use
 }
 
 func NewRouter(socket sock.Socket) *Router {
 	return &Router{
-		Lsdb:          make(map[netip.Addr]LSAEntry),
+		lsdb:          make(map[netip.Addr]LSAEntry),
 		socket:        socket,
-		NeighborTable: make(map[netip.Addr]NeighborEntry),
-		RoutingTable:  make(map[netip.Addr]netip.AddrPort),
+		neighborTable: make(map[netip.Addr]NeighborEntry),
+		routingTable:  make(map[netip.Addr]netip.AddrPort),
 	}
 }
 

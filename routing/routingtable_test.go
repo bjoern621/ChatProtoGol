@@ -236,13 +236,13 @@ func TestBuildRoutingTable(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			socket := &MockSocket{}
 			router := NewRouter(socket)
-			router.Lsdb = tt.lsdb
-			router.NeighborTable = tt.neighborTable
+			router.lsdb = tt.lsdb
+			router.neighborTable = tt.neighborTable
 
 			router.BuildRoutingTable(socket)
 
-			if !mapsEqual(router.RoutingTable, tt.expected) {
-				t.Errorf("expected %v, got %v", tt.expected, router.RoutingTable)
+			if !mapsEqual(router.routingTable, tt.expected) {
+				t.Errorf("expected %v, got %v", tt.expected, router.routingTable)
 			}
 		})
 	}

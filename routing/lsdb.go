@@ -19,25 +19,25 @@ func (r *Router) RecalculateLocalLSA() {
 
 	localLSA := LSAEntry{
 		seqNum:    r.getLatestSequenceNumber(localAddr),
-		neighbors: make([]netip.Addr, 0, len(r.NeighborTable)),
+		neighbors: make([]netip.Addr, 0, len(r.neighborTable)),
 	}
 
-	for neighborAddr := range r.NeighborTable {
+	for neighborAddr := range r.neighborTable {
 		localLSA.neighbors = append(localLSA.neighbors, neighborAddr)
 	}
 
-	r.Lsdb[localAddr] = localLSA
+	r.lsdb[localAddr] = localLSA
 }
 
 func (r *Router) getLatestSequenceNumber(addr netip.Addr) [4]byte {
-	if entry, exists := r.Lsdb[addr]; exists {
+	if entry, exists := r.lsdb[addr]; exists {
 		return entry.seqNum
 	}
 	return [4]byte{0, 0, 0, 0} // Default sequence number if not found
 }
 
 func (r *Router) GetLSA(addr netip.Addr) (LSAEntry, bool) {
-	if entry, exists := r.Lsdb[addr]; exists {
+	if entry, exists := r.lsdb[addr]; exists {
 		return entry, true
 	}
 	return LSAEntry{}, false
@@ -46,12 +46,12 @@ func (r *Router) GetLSA(addr netip.Addr) (LSAEntry, bool) {
 // Creates the current topology of the network based on the LSAs in the LSDB.
 // Runs the Dijkstra algorithm to calculate the shortest paths and build the routing table.
 func (r *Router) BuildRoutingTable(socket sock.Socket) {
-	assert.Assert(len(r.Lsdb) > 0, "LSDB must not be empty to build the routing table")
+	assert.Assert(len(r.lsdb) > 0, "LSDB must not be empty to build the routing table")
 
-	queue := make(dijkstraPriorityQueue, len(r.Lsdb)-1)
+	queue := make(dijkstraPriorityQueue, len(r.lsdb)-1)
 	i := 0
 	localAddr := r.socket.MustGetLocalAddress().Addr()
-	for addr := range r.Lsdb {
+	for addr := range r.lsdb {
 		if addr == localAddr {
 			continue // Skip the local address, as it does not need a routing entry
 		}
@@ -76,8 +76,8 @@ func (r *Router) BuildRoutingTable(socket sock.Socket) {
 	}
 
 	// Add neighbors we don't have in the LSDB yet. This is useful when a new neighbor connects and we want to ensure it is reachable.
-	for neighborAddr, neighborEntry := range r.NeighborTable {
-		if _, exists := r.Lsdb[neighborAddr]; !exists {
+	for neighborAddr, neighborEntry := range r.neighborTable {
+		if _, exists := r.lsdb[neighborAddr]; !exists {
 			queue = append(queue, &DijkstraNode{
 				Addr:    neighborAddr,
 				NextHop: &neighborEntry.NextHop,
@@ -88,7 +88,7 @@ func (r *Router) BuildRoutingTable(socket sock.Socket) {
 
 	heap.Init(&queue)
 
-	r.RoutingTable = make(map[netip.Addr]netip.AddrPort, len(queue))
+	r.routingTable = make(map[netip.Addr]netip.AddrPort, len(queue))
 
 	for queue.Len() > 0 {
 		currentNode := heap.Pop(&queue).(*DijkstraNode)
@@ -97,11 +97,11 @@ func (r *Router) BuildRoutingTable(socket sock.Socket) {
 			break // All remaining nodes are unreachable
 		}
 
-		r.RoutingTable[currentNode.Addr] = *currentNode.NextHop
+		r.routingTable[currentNode.Addr] = *currentNode.NextHop
 
 		// Update the distance of adjacent nodes that are still unvisited (not in the routing table and not the local address)
-		for _, neighborAddr := range r.Lsdb[currentNode.Addr].neighbors {
-			if _, exists := r.RoutingTable[neighborAddr]; exists {
+		for _, neighborAddr := range r.lsdb[currentNode.Addr].neighbors {
+			if _, exists := r.routingTable[neighborAddr]; exists {
 				continue // Skip if the neighbor is already in the routing table
 			}
 			if neighborAddr == localAddr {

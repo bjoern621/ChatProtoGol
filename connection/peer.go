@@ -18,13 +18,13 @@ import (
 )
 
 var socket sock.Socket
-var Router *routing.Router
+var router *routing.Router
 var incomingSequencing *sequencing.IncomingPktNumHandler
 var outgoingSequencing *sequencing.OutgoingPktNumHandler
 
 func SetGlobalVars(s sock.Socket, r *routing.Router, in *sequencing.IncomingPktNumHandler, out *sequencing.OutgoingPktNumHandler) {
 	socket = s
-	Router = r
+	router = r
 	incomingSequencing = in
 	outgoingSequencing = out
 }
@@ -259,7 +259,7 @@ func buildPacket(msgType byte, lastBit bool, payload pkt.Payload, destAddr netip
 func SendAcknowledgment(peerAddr netip.Addr, pktNum [4]byte) {
 	ackPacket := buildPacket(pkt.MsgTypeAcknowledgment, true, nil, peerAddr, pktNum)
 
-	nextHop, found := Router.GetNextHop(peerAddr)
+	nextHop, found := router.GetNextHop(peerAddr)
 	assert.Assert(found, "Next hop should not be nil when sending acknowledgment")
 
 	err := SendPacketTo(nextHop, ackPacket)
