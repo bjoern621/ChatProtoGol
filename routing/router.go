@@ -3,17 +3,17 @@ package routing
 import (
 	"net/netip"
 
-	"bjoernblessin.de/chatprotogol/skt"
+	"bjoernblessin.de/chatprotogol/sock"
 )
 
 type Router struct {
 	Lsdb          map[netip.Addr]LSAEntry // Local State Database (LSDB) that holds the Link State Advertisements (LSAs) of every host (including the local LSA)
-	socket        skt.Socket
+	socket        sock.Socket
 	NeighborTable map[netip.Addr]NeighborEntry
 	RoutingTable  map[netip.Addr]netip.AddrPort // Maps destination IP addresses to the next hop they should use
 }
 
-func NewRouter(socket skt.Socket) *Router {
+func NewRouter(socket sock.Socket) *Router {
 	return &Router{
 		Lsdb:          make(map[netip.Addr]LSAEntry),
 		socket:        socket,

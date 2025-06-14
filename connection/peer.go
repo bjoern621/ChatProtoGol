@@ -12,17 +12,17 @@ import (
 	"bjoernblessin.de/chatprotogol/reconstruction"
 	"bjoernblessin.de/chatprotogol/routing"
 	"bjoernblessin.de/chatprotogol/sequencing"
-	"bjoernblessin.de/chatprotogol/skt"
+	"bjoernblessin.de/chatprotogol/sock"
 	"bjoernblessin.de/chatprotogol/util/assert"
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
 
-var socket skt.Socket
+var socket sock.Socket
 var Router *routing.Router
 var incomingSequencing *sequencing.IncomingPktNumHandler
 var outgoingSequencing *sequencing.OutgoingPktNumHandler
 
-func SetGlobalVars(s skt.Socket, r *routing.Router, in *sequencing.IncomingPktNumHandler, out *sequencing.OutgoingPktNumHandler) {
+func SetGlobalVars(s sock.Socket, r *routing.Router, in *sequencing.IncomingPktNumHandler, out *sequencing.OutgoingPktNumHandler) {
 	socket = s
 	Router = r
 	incomingSequencing = in

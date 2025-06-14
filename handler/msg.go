@@ -8,12 +8,12 @@ import (
 	"bjoernblessin.de/chatprotogol/pkt"
 	"bjoernblessin.de/chatprotogol/reconstruction"
 	"bjoernblessin.de/chatprotogol/sequencing"
-	"bjoernblessin.de/chatprotogol/skt"
+	"bjoernblessin.de/chatprotogol/sock"
 	"bjoernblessin.de/chatprotogol/util/assert"
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
 
-func handleMsg(packet *pkt.Packet, socket skt.Socket, inSequencing *sequencing.IncomingPktNumHandler, reconstructor *reconstruction.PktSequenceReconstructor) {
+func handleMsg(packet *pkt.Packet, socket sock.Socket, inSequencing *sequencing.IncomingPktNumHandler, reconstructor *reconstruction.PktSequenceReconstructor) {
 	destAddr := netip.AddrFrom4(packet.Header.DestAddr)
 
 	if destAddr == socket.MustGetLocalAddress().Addr() {

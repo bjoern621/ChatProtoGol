@@ -12,14 +12,14 @@ import (
 	"bjoernblessin.de/chatprotogol/reconstruction"
 	"bjoernblessin.de/chatprotogol/routing"
 	"bjoernblessin.de/chatprotogol/sequencing"
-	"bjoernblessin.de/chatprotogol/skt"
+	"bjoernblessin.de/chatprotogol/sock"
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
 
 func main() {
 	log.Println("Running...")
 
-	udpSocket := skt.NewUDPSocket()
+	udpSocket := sock.NewUDPSocket()
 
 	router := routing.NewRouter(udpSocket)
 

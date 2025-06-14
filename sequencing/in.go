@@ -12,7 +12,7 @@ import (
 
 	"bjoernblessin.de/chatprotogol/common"
 	"bjoernblessin.de/chatprotogol/pkt"
-	"bjoernblessin.de/chatprotogol/skt"
+	"bjoernblessin.de/chatprotogol/sock"
 	"bjoernblessin.de/chatprotogol/util/assert"
 )
 
@@ -20,10 +20,10 @@ type IncomingPktNumHandler struct {
 	seqMu         sync.Mutex
 	highestSeqNum map[netip.Addr]uint32          // Highest contiguous seq num received per peer
 	futureSeqNums map[netip.Addr]map[uint32]bool // Out-of-order seq nums > highest, bounded by common.RECEIVE_BUFFER_SIZE
-	socket        skt.Socket
+	socket        sock.Socket
 }
 
-func NewIncomingPktNumHandler(socket skt.Socket) *IncomingPktNumHandler {
+func NewIncomingPktNumHandler(socket sock.Socket) *IncomingPktNumHandler {
 	return &IncomingPktNumHandler{
 		highestSeqNum: make(map[netip.Addr]uint32),
 		futureSeqNums: make(map[netip.Addr]map[uint32]bool),

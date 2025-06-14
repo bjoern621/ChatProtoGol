@@ -2,14 +2,14 @@ package cmd
 
 import (
 	"bjoernblessin.de/chatprotogol/routing"
-	"bjoernblessin.de/chatprotogol/skt"
+	"bjoernblessin.de/chatprotogol/sock"
 )
 
-var socket skt.Socket
+var socket sock.Socket
 var router *routing.Router
 
 // SetGlobalVars sets the global socket variable to the provided socket.
-func SetGlobalVars(s skt.Socket, r *routing.Router) {
+func SetGlobalVars(s sock.Socket, r *routing.Router) {
 	socket = s
 	router = r
 }

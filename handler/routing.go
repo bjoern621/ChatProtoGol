@@ -7,7 +7,7 @@ import (
 	"bjoernblessin.de/chatprotogol/pkt"
 	"bjoernblessin.de/chatprotogol/routing"
 	"bjoernblessin.de/chatprotogol/sequencing"
-	"bjoernblessin.de/chatprotogol/skt"
+	"bjoernblessin.de/chatprotogol/sock"
 	"bjoernblessin.de/chatprotogol/util/assert"
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
@@ -33,7 +33,7 @@ func handleRoutingDuplicate(packet *pkt.Packet, sourceAddr *net.UDPAddr, inSeque
 // It adds the (maybe new) peer to the routing table with a hop count of 1.
 // It sends an acknowledgment back to the sender.
 // It sends the current routing table to all neighbors (including the new peer).
-func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr, socket skt.Socket, router *routing.Router, inSequencing *sequencing.IncomingPktNumHandler) {
+func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr, socket sock.Socket, router *routing.Router, inSequencing *sequencing.IncomingPktNumHandler) {
 	handled := handleRoutingDuplicate(packet, sourceAddr, inSequencing)
 	if handled {
 		return

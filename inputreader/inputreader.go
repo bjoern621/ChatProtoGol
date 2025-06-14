@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"bjoernblessin.de/chatprotogol/skt"
+	"bjoernblessin.de/chatprotogol/sock"
 )
 
 type Command string
@@ -16,10 +16,10 @@ type CommandHandler func(args []string)
 type InputReader struct {
 	scanner  *bufio.Scanner
 	handlers map[Command][]CommandHandler
-	socket   skt.Socket
+	socket   sock.Socket
 }
 
-func NewInputReader(socket skt.Socket) *InputReader {
+func NewInputReader(socket sock.Socket) *InputReader {
 	return &InputReader{
 		scanner:  bufio.NewScanner(os.Stdin),
 		handlers: make(map[Command][]CommandHandler),

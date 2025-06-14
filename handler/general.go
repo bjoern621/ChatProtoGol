@@ -7,19 +7,19 @@ import (
 	"bjoernblessin.de/chatprotogol/reconstruction"
 	"bjoernblessin.de/chatprotogol/routing"
 	"bjoernblessin.de/chatprotogol/sequencing"
-	"bjoernblessin.de/chatprotogol/skt"
+	"bjoernblessin.de/chatprotogol/sock"
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
 
 type PacketHandler struct {
-	socket        skt.Socket
+	socket        sock.Socket
 	router        *routing.Router
 	inSequencing  *sequencing.IncomingPktNumHandler
 	outSequencing *sequencing.OutgoingPktNumHandler
 	reconstructor *reconstruction.PktSequenceReconstructor
 }
 
-func NewPacketHandler(socket skt.Socket, router *routing.Router, inSequencing *sequencing.IncomingPktNumHandler, outSequencing *sequencing.OutgoingPktNumHandler, recon *reconstruction.PktSequenceReconstructor) *PacketHandler {
+func NewPacketHandler(socket sock.Socket, router *routing.Router, inSequencing *sequencing.IncomingPktNumHandler, outSequencing *sequencing.OutgoingPktNumHandler, recon *reconstruction.PktSequenceReconstructor) *PacketHandler {
 	return &PacketHandler{
 		socket:        socket,
 		router:        router,
@@ -40,7 +40,7 @@ func (ph *PacketHandler) ListenToPackets() {
 // processPacket processes an incoming UDP packet.
 // It parses the packet, verifies the checksum, checks TTL and handles it based on its message type.
 // This is the general entry for all incoming packets.
-func (ph *PacketHandler) processPacket(udpPacket *skt.Packet) {
+func (ph *PacketHandler) processPacket(udpPacket *sock.Packet) {
 	packet, err := pkt.ParsePacket(udpPacket.Data)
 	if err != nil {
 		logger.Warnf("Failed to parse packet: %v", err)

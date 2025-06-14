@@ -1,6 +1,6 @@
 // Package socket manages the UDP socket. The socket can send and receive UDP packets.
 // There is only one socket per application. All packets are sent through this socket.
-package skt
+package sock
 
 import (
 	"errors"

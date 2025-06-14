@@ -7,7 +7,7 @@ import (
 
 	"fmt"
 
-	"bjoernblessin.de/chatprotogol/skt"
+	"bjoernblessin.de/chatprotogol/sock"
 )
 
 type MockSocket struct{}
@@ -38,8 +38,8 @@ func (m *MockSocket) Open(ipv4addr net.IP) (*net.UDPAddr, error) {
 	}, nil
 }
 
-func (m *MockSocket) Subscribe() chan *skt.Packet {
-	return make(chan *skt.Packet)
+func (m *MockSocket) Subscribe() chan *sock.Packet {
+	return make(chan *sock.Packet)
 }
 
 // Helper function to compare two maps

@@ -6,7 +6,7 @@ import (
 	"bjoernblessin.de/chatprotogol/connection"
 	"bjoernblessin.de/chatprotogol/pkt"
 	"bjoernblessin.de/chatprotogol/sequencing"
-	"bjoernblessin.de/chatprotogol/skt"
+	"bjoernblessin.de/chatprotogol/sock"
 	"bjoernblessin.de/chatprotogol/util/assert"
 	"bjoernblessin.de/chatprotogol/util/logger"
 	"bjoernblessin.de/chatprotogol/util/observer"
@@ -36,7 +36,7 @@ func SubscribeToReceivedAck(packet *pkt.Packet) chan any {
 	return ackObservers[id].SubscribeOnce()
 }
 
-func handleAck(packet *pkt.Packet, socket skt.Socket, outSequencing *sequencing.OutgoingPktNumHandler) {
+func handleAck(packet *pkt.Packet, socket sock.Socket, outSequencing *sequencing.OutgoingPktNumHandler) {
 	logger.Infof("ACK RECEIVED %v %d", packet.Header.SourceAddr, packet.Header.PktNum)
 
 	destAddr := netip.AddrFrom4(packet.Header.DestAddr)

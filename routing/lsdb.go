@@ -5,7 +5,7 @@ import (
 	"math"
 	"net/netip"
 
-	"bjoernblessin.de/chatprotogol/skt"
+	"bjoernblessin.de/chatprotogol/sock"
 	"bjoernblessin.de/chatprotogol/util/assert"
 )
 
@@ -45,7 +45,7 @@ func (r *Router) GetLSA(addr netip.Addr) (LSAEntry, bool) {
 
 // Creates the current topology of the network based on the LSAs in the LSDB.
 // Runs the Dijkstra algorithm to calculate the shortest paths and build the routing table.
-func (r *Router) BuildRoutingTable(socket skt.Socket) {
+func (r *Router) BuildRoutingTable(socket sock.Socket) {
 	assert.Assert(len(r.Lsdb) > 0, "LSDB must not be empty to build the routing table")
 
 	queue := make(dijkstraPriorityQueue, len(r.Lsdb)-1)
