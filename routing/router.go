@@ -7,7 +7,7 @@ import (
 )
 
 type Router struct {
-	lsdb          map[netip.Addr]LSAEntry // Local State Database (LSDB) that holds the Link State Advertisements (LSAs) of every host (including the local LSA)
+	lsdb          map[netip.Addr]LSAEntry // Link State Database (LSDB) that holds the Link State Advertisements (LSAs) of every host (including the local LSA)
 	socket        sock.Socket
 	neighborTable map[netip.Addr]NeighborEntry
 	routingTable  map[netip.Addr]netip.AddrPort // Maps destination IP addresses to the next hop they should use
