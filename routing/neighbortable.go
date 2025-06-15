@@ -11,9 +11,9 @@ type NeighborEntry struct {
 	NextHop netip.AddrPort
 }
 
-// AddNeighbor adds a new neighbor to the neighbor table.
+// addNeighbor adds a new neighbor to the neighbor table.
 // It checks if the neighbor already exists and asserts that it does not.
-func (r *Router) AddNeighbor(nextHop netip.AddrPort) {
+func (r *Router) addNeighbor(nextHop netip.AddrPort) {
 	_, exists := r.neighborTable[nextHop.Addr()]
 	assert.Assert(!exists, "Neighbor already exists in the neighbor table: %s", nextHop.Addr().String())
 
@@ -23,9 +23,23 @@ func (r *Router) AddNeighbor(nextHop netip.AddrPort) {
 // IsNeighbor checks if the given address is a neighbor.
 // It returns a boolean indicating if the address is a neighbor and if so, the address and port for that neighbor.
 func (r *Router) IsNeighbor(addr netip.Addr) (bool, netip.AddrPort) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	entry, exists := r.neighborTable[addr]
 	if !exists {
 		return false, netip.AddrPort{}
 	}
 	return true, entry.NextHop
+}
+
+func (r *Router) GetNeighbors() map[netip.Addr]netip.AddrPort {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	neighbors := make(map[netip.Addr]netip.AddrPort, len(r.neighborTable))
+	for addr, entry := range r.neighborTable {
+		neighbors[addr] = entry.NextHop
+	}
+	return neighbors
 }

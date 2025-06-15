@@ -1,8 +1,8 @@
-// Package connection manages the connection to a peer.
-// It handles the routing table, sequence numbers, and connection management.
+// Pacage connection provides high-level functions for sending to peers.
 package connection
 
 import (
+	"encoding/binary"
 	"errors"
 	"net"
 	"net/netip"
@@ -304,17 +304,44 @@ func buildPacket(msgType byte, lastBit bool, payload pkt.Payload, destAddr netip
 	return packet
 }
 
-func SendAcknowledgment(peerAddr netip.Addr, pktNum [4]byte) {
+// SendRoutedAcknowledgment sends an acknowledgment packet to the specified peer address.
+// Routed: Uses the routing table to determine the next hop.
+func SendRoutedAcknowledgment(peerAddr netip.Addr, pktNum [4]byte) error {
 	ackPacket := buildPacket(pkt.MsgTypeAcknowledgment, true, nil, peerAddr, pktNum)
 
 	nextHop, found := router.GetNextHop(peerAddr)
-	assert.Assert(found, "Next hop should not be nil when sending acknowledgment")
+	if !found {
+		return errors.New("no next hop found for the peer address (is the peer disconnected?)")
+	}
 
 	err := SendPacketTo(nextHop, ackPacket)
 	if err != nil {
-		logger.Warnf("Failed to send acknowledgment to peer %v: %v", peerAddr, err)
-		return
+		return err
 	}
 
-	return
+	return nil
+}
+
+// FloodLSA sends a Link State Advertisement (LSA) to all neighbors.
+func FloodLSA(lsa routing.LSAEntry) {
+	payload := make(pkt.Payload, 0, 8+len(lsa.Neighbors)*4)
+
+	localAddressBytes := socket.MustGetLocalAddress().Addr().As4()
+	payload = append(payload, localAddressBytes[:]...)
+
+	binary.BigEndian.PutUint32(payload[4:8], lsa.SeqNum)
+
+	for _, neighborAddr := range lsa.Neighbors {
+		addrBytes := neighborAddr.As4()
+		payload = append(payload, addrBytes[:]...)
+	}
+
+	for destinationAddr := range router.GetNeighbors() {
+		packet := BuildSequencedPacket(pkt.MsgTypeLSA, true, payload, destinationAddr)
+
+		err := SendReliableRoutedPacket(packet)
+		if err != nil {
+			logger.Warnf("Failed to send LSA for %s: %v", destinationAddr, err)
+		}
+	}
 }

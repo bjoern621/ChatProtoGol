@@ -33,7 +33,7 @@ func handleRoutingDuplicate(packet *pkt.Packet, sourceAddr *net.UDPAddr, inSeque
 // It adds the (maybe new) peer to the routing table with a hop count of 1.
 // It sends an acknowledgment back to the sender.
 // It sends the current routing table to all neighbors (including the new peer).
-func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr, socket sock.Socket, router *routing.Router, inSequencing *sequencing.IncomingPktNumHandler) {
+func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr, router *routing.Router, inSequencing *sequencing.IncomingPktNumHandler, socket sock.Socket) {
 	handled := handleRoutingDuplicate(packet, sourceAddr, inSequencing)
 	if handled {
 		return
@@ -42,10 +42,12 @@ func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr, socket sock.Sock
 	logger.Infof("CONN FROM %v %v", packet.Header.SourceAddr, packet.Header.PktNum)
 
 	router.AddNeighbor(sourceAddr.AddrPort())
-	router.RecalculateLocalLSA()
-	router.BuildRoutingTable(socket)
 
-	connection.SendAcknowledgment(sourceAddr.AddrPort().Addr(), packet.Header.PktNum)
+	connection.SendRoutedAcknowledgment(sourceAddr.AddrPort().Addr(), packet.Header.PktNum)
+
+	localLSA, exists := router.GetLSA(socket.MustGetLocalAddress().Addr())
+	assert.Assert(exists, "Local LSA should exist for the local address")
+	connection.FloodLSA(localLSA)
 
 	// Send DD packet
 	routingEntries := routing.GetRoutingTableEntries()

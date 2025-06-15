@@ -2,6 +2,7 @@ package routing
 
 import (
 	"net/netip"
+	"sync"
 
 	"bjoernblessin.de/chatprotogol/sock"
 )
@@ -11,6 +12,7 @@ type Router struct {
 	socket        sock.Socket
 	neighborTable map[netip.Addr]NeighborEntry
 	routingTable  map[netip.Addr]netip.AddrPort // Maps destination IP addresses to the next hop they should use
+	mu            sync.Mutex
 }
 
 func NewRouter(socket sock.Socket) *Router {
@@ -20,6 +22,18 @@ func NewRouter(socket sock.Socket) *Router {
 		neighborTable: make(map[netip.Addr]NeighborEntry),
 		routingTable:  make(map[netip.Addr]netip.AddrPort),
 	}
+}
+
+// AddNeighbor adds a new neighbor to the router.
+// It adds the neighbor to the neighbor table, recalculates the local LSA, and builds the routing table.
+// Can be called concurrently.
+func (r *Router) AddNeighbor(nextHop netip.AddrPort) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.addNeighbor(nextHop)
+	r.recalculateLocalLSA()
+	r.buildRoutingTable()
 }
 
 // TODO

@@ -40,7 +40,7 @@ type Socket interface {
 	Subscribe() chan *Packet
 }
 
-type UDPSocket struct {
+type udpSocket struct {
 	udpSocket        *net.UDPConn
 	packetObservable *observer.Observable[*Packet]
 }
@@ -50,30 +50,30 @@ type Packet struct {
 	Data []byte
 }
 
-func NewUDPSocket() *UDPSocket {
-	return &UDPSocket{
+func NewUDPSocket() *udpSocket {
+	return &udpSocket{
 		packetObservable: observer.NewObservable[*Packet](),
 	}
 }
 
-func (s *UDPSocket) GetLocalAddress() (netip.AddrPort, error) {
+func (s *udpSocket) GetLocalAddress() (netip.AddrPort, error) {
 	if s.udpSocket == nil {
 		return netip.AddrPort{}, errors.New("UDP socket is not initialized")
 	}
 	return s.udpSocket.LocalAddr().(*net.UDPAddr).AddrPort(), nil
 }
 
-func (s *UDPSocket) MustGetLocalAddress() netip.AddrPort {
+func (s *udpSocket) MustGetLocalAddress() netip.AddrPort {
 	addr, err := s.GetLocalAddress()
 	assert.IsNil(err)
 	return addr
 }
 
-func (s *UDPSocket) Subscribe() chan *Packet {
+func (s *udpSocket) Subscribe() chan *Packet {
 	return s.packetObservable.Subscribe()
 }
 
-func (s *UDPSocket) Open(ipv4addr net.IP) (*net.UDPAddr, error) {
+func (s *udpSocket) Open(ipv4addr net.IP) (*net.UDPAddr, error) {
 	assert.Assert(s.udpSocket == nil, "UDP socket is already initialized. Call Close() before calling Open() again.")
 
 	socket, err := net.ListenUDP("udp4", &net.UDPAddr{
@@ -90,7 +90,7 @@ func (s *UDPSocket) Open(ipv4addr net.IP) (*net.UDPAddr, error) {
 	return socket.LocalAddr().(*net.UDPAddr), nil
 }
 
-func (s *UDPSocket) readLoop() {
+func (s *udpSocket) readLoop() {
 	for {
 		buffer := make([]byte, common.UDP_BUFFER_SIZE_BYTES)
 		n, addr, err := s.udpSocket.ReadFromUDP(buffer)
@@ -107,7 +107,7 @@ func (s *UDPSocket) readLoop() {
 		s.packetObservable.NotifyObservers(&Packet{addr, buffer[:n]})
 	}
 }
-func (s *UDPSocket) SendTo(addr *net.UDPAddr, data []byte) error {
+func (s *udpSocket) SendTo(addr *net.UDPAddr, data []byte) error {
 	assert.IsNotNil(s.udpSocket, "UDP socket is not initialized.")
 
 	_, err := s.udpSocket.WriteToUDP(data, addr)
@@ -118,7 +118,7 @@ func (s *UDPSocket) SendTo(addr *net.UDPAddr, data []byte) error {
 	return nil
 }
 
-func (s *UDPSocket) Close() error {
+func (s *udpSocket) Close() error {
 	if s.udpSocket == nil {
 		return nil
 	}

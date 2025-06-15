@@ -60,7 +60,7 @@ func (ph *PacketHandler) processPacket(udpPacket *sock.Packet) {
 
 	switch packet.GetMessageType() {
 	case pkt.MsgTypeConnect:
-		handleConnect(packet, udpPacket.Addr, ph.socket, ph.router, ph.inSequencing)
+		handleConnect(packet, udpPacket.Addr, ph.router, ph.inSequencing, ph.socket)
 	case pkt.MsgTypeDisconnect:
 		handleDisconnect(packet, udpPacket.Addr, ph.inSequencing)
 	case pkt.MsgTypeRoutingTableUpdate:
@@ -69,6 +69,8 @@ func (ph *PacketHandler) processPacket(udpPacket *sock.Packet) {
 		handleAck(packet, ph.socket, ph.outSequencing)
 	case pkt.MsgTypeChatMessage:
 		handleMsg(packet, ph.socket, ph.inSequencing, ph.reconstructor)
+	case pkt.MsgTypeDD:
+		handleDatabaseDescription(packet, ph.router, ph.inSequencing, ph.socket)
 	default:
 		logger.Warnf("Unhandled packet type: %v from %v to %v", packet.GetMessageType(), packet.Header.SourceAddr, packet.Header.DestAddr)
 		return

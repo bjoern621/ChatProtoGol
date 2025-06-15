@@ -9,7 +9,8 @@ import (
 	"bjoernblessin.de/chatprotogol/connection"
 	"bjoernblessin.de/chatprotogol/handler"
 	"bjoernblessin.de/chatprotogol/pkt"
-	"bjoernblessin.de/chatprotogol/routing"
+	"bjoernblessin.de/chatprotogol/sock"
+	"bjoernblessin.de/chatprotogol/util/assert"
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
 
@@ -65,7 +66,7 @@ func connect(ipv4String string, portString string) {
 
 	go func() {
 		for range handler.SubscribeToReceivedAck(packet) {
-			handleConnectAck(addrPort)
+			handleConnectAck(addrPort, socket)
 			break
 		}
 	}()
@@ -81,15 +82,15 @@ func printUsage() {
 	fmt.Println("Usage: con (<IP address> <port> | <IP address:port>) Example: con 10.0.0.2 8080; con 10.0.0.2:8080")
 }
 
-func handleConnectAck(addrPort netip.AddrPort) {
-	fmt.Printf("Connection to %s:%d established.\n", addrPort.Addr(), addrPort.Port())
-
+func handleConnectAck(addrPort netip.AddrPort, socket sock.Socket) {
 	router.AddNeighbor(addrPort)
-	router.RecalculateLocalLSA()
-	router.BuildRoutingTable(socket)
+
+	localLSA, exists := router.GetLSA(socket.MustGetLocalAddress().Addr())
+	assert.Assert(exists, "Local LSA should exist for the local address")
+	connection.FloodLSA(localLSA)
 
 	// Send DD packet
-	routingEntries := routing.GetRoutingTableEntries()
+	routingEntries := router.GetRoutingTable()
 	payload := make(pkt.Payload, 0, len(routingEntries))
 	for addr := range routingEntries {
 		addrBytes := addr.As4()

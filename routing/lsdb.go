@@ -5,42 +5,60 @@ import (
 	"math"
 	"net/netip"
 
-	"bjoernblessin.de/chatprotogol/sock"
 	"bjoernblessin.de/chatprotogol/util/assert"
 )
 
 type LSAEntry struct {
-	seqNum    [4]byte // The sequence number ("version") of the LSA
-	neighbors []netip.Addr
+	SeqNum    uint32 // The sequence number ("version") of the LSA
+	Neighbors []netip.Addr
 }
 
-func (r *Router) RecalculateLocalLSA() {
+// recalculateLocalLSA recalculates the local LSA.
+// The sequence number is incremented for the local address.
+func (r *Router) recalculateLocalLSA() {
 	localAddr := r.socket.MustGetLocalAddress().Addr()
 
 	localLSA := LSAEntry{
-		seqNum:    r.getLatestSequenceNumber(localAddr),
-		neighbors: make([]netip.Addr, 0, len(r.neighborTable)),
+		SeqNum:    r.getNextSequenceNumber(localAddr),
+		Neighbors: make([]netip.Addr, 0, len(r.neighborTable)),
 	}
 
 	for neighborAddr := range r.neighborTable {
-		localLSA.neighbors = append(localLSA.neighbors, neighborAddr)
+		localLSA.Neighbors = append(localLSA.Neighbors, neighborAddr)
 	}
 
 	r.lsdb[localAddr] = localLSA
 }
 
-func (r *Router) getLatestSequenceNumber(addr netip.Addr) [4]byte {
+// getNextSequenceNumber returns the next sequence number for the given address.
+// If the address does not exist in the LSDB, it returns 0 as the default sequence number.
+func (r *Router) getNextSequenceNumber(addr netip.Addr) uint32 {
 	if entry, exists := r.lsdb[addr]; exists {
-		return entry.seqNum
+		return entry.SeqNum + 1
 	}
-	return [4]byte{0, 0, 0, 0} // Default sequence number if not found
+	return 0 // Default sequence number if not found
 }
 
 func (r *Router) GetLSA(addr netip.Addr) (LSAEntry, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	if entry, exists := r.lsdb[addr]; exists {
 		return entry, true
 	}
 	return LSAEntry{}, false
+}
+
+// GetAvailableLSAs returns a slice of all available LSAs in the LSDB.
+func (r *Router) GetAvailableLSAs() []netip.Addr {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	addresses := make([]netip.Addr, 0, len(r.lsdb))
+	for addr := range r.lsdb {
+		addresses = append(addresses, addr)
+	}
+	return addresses
 }
 
 type DijkstraNode struct {
@@ -88,7 +106,7 @@ func (pq *dijkstraPriorityQueue) update(node *DijkstraNode, newDist int, nextHop
 
 // Creates the current topology of the network based on the LSAs in the LSDB.
 // Runs the Dijkstra algorithm to calculate the shortest paths and build the routing table.
-func (r *Router) BuildRoutingTable(socket sock.Socket) {
+func (r *Router) buildRoutingTable() {
 	assert.Assert(len(r.lsdb) > 0, "LSDB must not be empty to build the routing table")
 
 	queue := make(dijkstraPriorityQueue, len(r.lsdb)-1)
@@ -143,7 +161,7 @@ func (r *Router) BuildRoutingTable(socket sock.Socket) {
 		r.routingTable[currentNode.Addr] = *currentNode.NextHop
 
 		// Update the distance of adjacent nodes that are still unvisited (not in the routing table and not the local address)
-		for _, neighborAddr := range r.lsdb[currentNode.Addr].neighbors {
+		for _, neighborAddr := range r.lsdb[currentNode.Addr].Neighbors {
 			if _, exists := r.routingTable[neighborAddr]; exists {
 				continue // Skip if the neighbor is already in the routing table
 			}
@@ -153,7 +171,7 @@ func (r *Router) BuildRoutingTable(socket sock.Socket) {
 
 			// Find the corresponding node in the queue for the neighbor
 			var neighborNode *DijkstraNode
-			for i := range queue.Len() {
+			for i := range queue.Len() { // TODO optimize using map
 				if queue[i].Addr == neighborAddr {
 					neighborNode = queue[i]
 					break

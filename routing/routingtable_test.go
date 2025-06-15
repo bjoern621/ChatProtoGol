@@ -77,7 +77,7 @@ func TestBuildRoutingTable(t *testing.T) {
 			name: "Only local LSA but with Neighbors", // (10.0.0.2) <->  (10.0.0.1) <-> (10.0.0.3)
 			lsdb: map[netip.Addr]LSAEntry{
 				netip.MustParseAddr(LOCAL_ADDR): {
-					neighbors: []netip.Addr{
+					Neighbors: []netip.Addr{
 						netip.MustParseAddr("10.0.0.2"),
 						netip.MustParseAddr("10.0.0.3"),
 					},
@@ -100,10 +100,10 @@ func TestBuildRoutingTable(t *testing.T) {
 			name: "Single neighbor", // (10.0.0.1) <-> (10.0.0.2)
 			lsdb: map[netip.Addr]LSAEntry{
 				netip.MustParseAddr(LOCAL_ADDR): {
-					neighbors: []netip.Addr{netip.MustParseAddr("10.0.0.2")},
+					Neighbors: []netip.Addr{netip.MustParseAddr("10.0.0.2")},
 				},
 				netip.MustParseAddr("10.0.0.2"): {
-					neighbors: []netip.Addr{netip.MustParseAddr("10.0.0.1")},
+					Neighbors: []netip.Addr{netip.MustParseAddr("10.0.0.1")},
 				},
 			},
 			neighborTable: map[netip.Addr]NeighborEntry{
@@ -121,30 +121,30 @@ func TestBuildRoutingTable(t *testing.T) {
 			name: "Multiple neighbors",
 			lsdb: map[netip.Addr]LSAEntry{
 				netip.MustParseAddr(LOCAL_ADDR): {
-					neighbors: []netip.Addr{
+					Neighbors: []netip.Addr{
 						netip.MustParseAddr("10.0.0.2"),
 						netip.MustParseAddr("10.0.0.4"),
 						netip.MustParseAddr("10.0.0.3"),
 					},
 				},
 				netip.MustParseAddr("10.0.0.2"): {
-					neighbors: []netip.Addr{
+					Neighbors: []netip.Addr{
 						netip.MustParseAddr("10.0.0.1"),
 					},
 				},
 				netip.MustParseAddr("10.0.0.3"): {
-					neighbors: []netip.Addr{
+					Neighbors: []netip.Addr{
 						netip.MustParseAddr("10.0.0.1"),
 						netip.MustParseAddr("10.0.0.5"),
 					},
 				},
 				netip.MustParseAddr("10.0.0.4"): {
-					neighbors: []netip.Addr{
+					Neighbors: []netip.Addr{
 						netip.MustParseAddr("10.0.0.1"),
 					},
 				},
 				netip.MustParseAddr("10.0.0.5"): {
-					neighbors: []netip.Addr{
+					Neighbors: []netip.Addr{
 						netip.MustParseAddr("10.0.0.3"),
 					},
 				},
@@ -173,39 +173,39 @@ func TestBuildRoutingTable(t *testing.T) {
 			name: "Loop",
 			lsdb: map[netip.Addr]LSAEntry{
 				netip.MustParseAddr(LOCAL_ADDR): {
-					neighbors: []netip.Addr{
+					Neighbors: []netip.Addr{
 						netip.MustParseAddr("10.0.0.2"),
 						netip.MustParseAddr("10.0.0.6"),
 					},
 				},
 				netip.MustParseAddr("10.0.0.2"): {
-					neighbors: []netip.Addr{
+					Neighbors: []netip.Addr{
 						netip.MustParseAddr("10.0.0.1"),
 						netip.MustParseAddr("10.0.0.3"),
 						netip.MustParseAddr("10.0.0.4"),
 					},
 				},
 				netip.MustParseAddr("10.0.0.3"): {
-					neighbors: []netip.Addr{
+					Neighbors: []netip.Addr{
 						netip.MustParseAddr("10.0.0.2"),
 						netip.MustParseAddr("10.0.0.4"),
 					},
 				},
 				netip.MustParseAddr("10.0.0.4"): {
-					neighbors: []netip.Addr{
+					Neighbors: []netip.Addr{
 						netip.MustParseAddr("10.0.0.2"),
 						netip.MustParseAddr("10.0.0.3"),
 						netip.MustParseAddr("10.0.0.5"),
 					},
 				},
 				netip.MustParseAddr("10.0.0.5"): {
-					neighbors: []netip.Addr{
+					Neighbors: []netip.Addr{
 						netip.MustParseAddr("10.0.0.4"),
 						netip.MustParseAddr("10.0.0.6"),
 					},
 				},
 				netip.MustParseAddr("10.0.0.6"): {
-					neighbors: []netip.Addr{
+					Neighbors: []netip.Addr{
 						netip.MustParseAddr("10.0.0.5"),
 						netip.MustParseAddr("10.0.0.1"),
 					},
@@ -239,7 +239,7 @@ func TestBuildRoutingTable(t *testing.T) {
 			router.lsdb = tt.lsdb
 			router.neighborTable = tt.neighborTable
 
-			router.BuildRoutingTable(socket)
+			router.buildRoutingTable()
 
 			if !mapsEqual(router.routingTable, tt.expected) {
 				t.Errorf("expected %v, got %v", tt.expected, router.routingTable)
