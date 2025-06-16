@@ -34,6 +34,7 @@ func main() {
 	reader.AddHandler("init", cmd.HandleInit)
 	reader.AddHandler("ls", cmd.HandleList)
 	reader.AddHandler("exit", cmd.HandleExit)
+	reader.AddHandler("lsdb", cmd.HandleListDatabase)
 
 	inSequencing := sequencing.NewIncomingPktNumHandler(udpSocket)
 	outSequencing := sequencing.NewOutgoingPktNumHandler()
