@@ -22,12 +22,6 @@ func HandleSend(args []string) { // TODO blocking
 		return
 	}
 
-	peer, found := connection.GetPeer(peerIP)
-	if !found {
-		println("No connection found for the specified IPv4 address:", args[0])
-		return
-	}
-
 	fullMsg := strings.Join(args[1:], " ")
 	msgBytes := []byte(fullMsg)
 	bytesLen := len(msgBytes)
@@ -39,7 +33,8 @@ func HandleSend(args []string) { // TODO blocking
 		payload := msgBytes[start:end]
 		isLastPacket := end == bytesLen
 
-		err := peer.SendNew(pkt.MsgTypeChatMessage, isLastPacket, payload)
+		packet := connection.BuildSequencedPacket(pkt.MsgTypeChatMessage, isLastPacket, payload, peerIP)
+		err := connection.SendReliableRoutedPacket(packet)
 		if err != nil {
 			logger.Warnf("Failed to send message to %s: %v\n", peerIP, err)
 			return
