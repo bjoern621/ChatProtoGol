@@ -21,7 +21,12 @@ func main() {
 
 	udpSocket := sock.NewUDPSocket()
 
-	router := routing.NewRouter(udpSocket)
+	inSequencing := sequencing.NewIncomingPktNumHandler(udpSocket)
+	outSequencing := sequencing.NewOutgoingPktNumHandler()
+
+	pktSequenceReconstructor := reconstruction.NewPktSequenceReconstructor(inSequencing)
+
+	router := routing.NewRouter(udpSocket, inSequencing, outSequencing, pktSequenceReconstructor)
 
 	cmd.SetGlobalVars(udpSocket, router)
 
@@ -35,10 +40,6 @@ func main() {
 	reader.AddHandler("ls", cmd.HandleList)
 	reader.AddHandler("exit", cmd.HandleExit)
 	reader.AddHandler("lsdb", cmd.HandleListDatabase)
-
-	inSequencing := sequencing.NewIncomingPktNumHandler(udpSocket)
-	outSequencing := sequencing.NewOutgoingPktNumHandler()
-	pktSequenceReconstructor := reconstruction.NewPktSequenceReconstructor(inSequencing)
 
 	handler := handler.NewPacketHandler(udpSocket, router, inSequencing, outSequencing, pktSequenceReconstructor)
 	go handler.ListenToPackets()

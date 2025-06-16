@@ -41,7 +41,7 @@ func handleLSA(packet *pkt.Packet, router *routing.Router, inSequencing *sequenc
 		return
 	}
 
-	router.AddLSA(lsaOwnerAddr, seqNum, neighborAddresses)
+	router.UpdateLSA(lsaOwnerAddr, seqNum, neighborAddresses)
 
 	updatedLSA, exists := router.GetLSA(lsaOwnerAddr)
 	if !exists {

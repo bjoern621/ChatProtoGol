@@ -1,4 +1,4 @@
-// Package reconstruction handles out-of-order and missing seq nums packets.
+// Package reconstruction handles out-of-order and missing pkt nums packets.
 // It can buffer "future" packets (packets that are received but can't be used yet).
 // It is not responsible for detecting duplicates, that is handled in the sequencing package.
 package reconstruction
@@ -20,35 +20,31 @@ type buffer struct {
 	payloads map[[4]byte]pkt.Payload // Maps sequence numbers to payloads
 }
 
-var (
-	payloadBuffer map[netip.Addr]*buffer = make(map[netip.Addr]*buffer) // Maps Peer to a map of buffer information
-)
-
-// ClearPayloadBuffer clears the payload buffer for a specific peer.
-// This should be called when the peer is no longer needed, such as after a disconnect.
-func ClearPayloadBuffer(peerAddr netip.Addr) {
-	delete(payloadBuffer, peerAddr)
+// ClearPayloadBuffer clears the payload buffer for a specific host.
+// This should be called when the host is no longer needed, such as after a "full" disconnect.
+func (r *PktSequenceReconstructor) ClearPayloadBuffer(addr netip.Addr) {
+	delete(r.payloadBuffer, addr)
 }
 
 // HandleIncomingMsgPacket processes an incoming message packet.
 // It checks if the packet is the last in a sequence and whether all parts of the message have been received.
 // If the message is complete, it returns the complete message and a flag indicating readiness.
 // The local buffer is cleared after returning the complete message, so the returned message should be copied if needed later.
-func (r *PktSequenceReconstructor) HandleIncomingMsgPacket(packet *pkt.Packet, sourcePeerAddr netip.Addr) (completeMsg []byte, isReady bool) {
-	if _, exists := payloadBuffer[sourcePeerAddr]; !exists {
-		// Received first packet of a sequence from this peer
-		payloadBuffer[sourcePeerAddr] = &buffer{
+func (r *PktSequenceReconstructor) HandleIncomingMsgPacket(packet *pkt.Packet, sourceAddr netip.Addr) (completeMsg []byte, isReady bool) {
+	if _, exists := r.payloadBuffer[sourceAddr]; !exists {
+		// Received first packet of a sequence from this host
+		r.payloadBuffer[sourceAddr] = &buffer{
 			payloads: make(map[[4]byte]pkt.Payload),
 		}
 	}
 
-	payloadBuffer[sourcePeerAddr].payloads[packet.Header.PktNum] = packet.Payload
+	r.payloadBuffer[sourceAddr].payloads[packet.Header.PktNum] = packet.Payload
 
 	if packet.IsLast() {
-		payloadBuffer[sourcePeerAddr].lastBit.received = true
+		r.payloadBuffer[sourceAddr].lastBit.received = true
 	}
 
-	isMessageComplete := payloadBuffer[sourcePeerAddr].lastBit.received && binary.BigEndian.Uint32(payloadBuffer[sourcePeerAddr].lastBit.seqNum[:]) <= r.sequencing.GetHighestContiguousSeqNum(sourcePeerAddr)
+	isMessageComplete := r.payloadBuffer[sourceAddr].lastBit.received && binary.BigEndian.Uint32(r.payloadBuffer[sourceAddr].lastBit.seqNum[:]) <= r.sequencing.GetHighestContiguousSeqNum(sourceAddr)
 
 	if !isMessageComplete {
 		// The message is not complete yet, we need to wait for more parts
@@ -56,7 +52,7 @@ func (r *PktSequenceReconstructor) HandleIncomingMsgPacket(packet *pkt.Packet, s
 	}
 
 	sortedSeqNums := []uint32{}
-	for seqNum := range payloadBuffer[sourcePeerAddr].payloads {
+	for seqNum := range r.payloadBuffer[sourceAddr].payloads {
 		sortedSeqNums = append(sortedSeqNums, binary.BigEndian.Uint32(seqNum[:]))
 	}
 	slices.Sort(sortedSeqNums)
@@ -64,13 +60,13 @@ func (r *PktSequenceReconstructor) HandleIncomingMsgPacket(packet *pkt.Packet, s
 	for _, seqNum := range sortedSeqNums {
 		var seqNumBytes [4]byte
 		binary.BigEndian.PutUint32(seqNumBytes[:], seqNum)
-		payload, exists := payloadBuffer[sourcePeerAddr].payloads[seqNumBytes]
+		payload, exists := r.payloadBuffer[sourceAddr].payloads[seqNumBytes]
 		assert.Assert(exists, "Payload should exist for sequence number %d", seqNum)
 
 		completeMsg = append(completeMsg, payload...)
 	}
 
-	ClearPayloadBuffer(sourcePeerAddr)
+	r.ClearPayloadBuffer(sourceAddr)
 
 	return completeMsg, true
 }

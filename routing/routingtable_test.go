@@ -3,6 +3,7 @@ package routing
 import (
 	"net"
 	"net/netip"
+	"slices"
 	"testing"
 
 	"fmt"
@@ -39,7 +40,7 @@ func (m *MockSocket) Open(ipv4addr net.IP) (*net.UDPAddr, error) {
 }
 
 func (m *MockSocket) Subscribe() chan *sock.Packet {
-	return make(chan *sock.Packet)
+	return nil
 }
 
 // Helper function to compare two maps
@@ -58,18 +59,20 @@ func mapsEqual(m1, m2 map[netip.Addr]netip.AddrPort) bool {
 
 func TestBuildRoutingTable(t *testing.T) {
 	tests := []struct {
-		name          string
-		lsdb          map[netip.Addr]LSAEntry
-		neighborTable map[netip.Addr]NeighborEntry
-		expected      map[netip.Addr]netip.AddrPort
+		name                string
+		lsdb                map[netip.Addr]LSAEntry
+		neighborTable       map[netip.Addr]NeighborEntry
+		expected            map[netip.Addr]netip.AddrPort
+		expectedUnreachable []netip.Addr
 	}{
 		{
 			name: "Only local LSA", // (10.0.0.1)
 			lsdb: map[netip.Addr]LSAEntry{
 				netip.MustParseAddr(LOCAL_ADDR): {},
 			},
-			neighborTable: map[netip.Addr]NeighborEntry{},
-			expected:      map[netip.Addr]netip.AddrPort{},
+			neighborTable:       map[netip.Addr]NeighborEntry{},
+			expected:            map[netip.Addr]netip.AddrPort{},
+			expectedUnreachable: nil,
 		},
 		{
 			// This test case happens when someone connects to the local host because we dont have their LSA yet.
@@ -243,7 +246,7 @@ func TestBuildRoutingTable(t *testing.T) {
 				netip.MustParseAddr("10.0.0.2"): {
 					Neighbors: []netip.Addr{
 						netip.MustParseAddr("10.0.0.1"),
-						netip.MustParseAddr("10.0.0.3"),
+						netip.MustParseAddr("10.0.0.3"), // 10.0.0.3 is a neighbor of 10.10.10.2 but we don't have 10.0.0.3's LSA yet
 					},
 				},
 			},
@@ -305,17 +308,32 @@ func TestBuildRoutingTable(t *testing.T) {
 				netip.MustParseAddr("10.0.0.2"): netip.MustParseAddrPort("10.0.0.2:20000"),
 				netip.MustParseAddr("10.0.0.3"): netip.MustParseAddrPort("10.0.0.2:20000"),
 			},
+			expectedUnreachable: []netip.Addr{
+				netip.MustParseAddr("10.0.0.4"),
+				netip.MustParseAddr("10.0.0.5"),
+				netip.MustParseAddr("10.0.0.6"),
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			socket := &MockSocket{}
-			router := NewRouter(socket)
+			router := NewRouter(socket, nil, nil, nil)
 			router.lsdb = tt.lsdb
 			router.neighborTable = tt.neighborTable
 
-			router.buildRoutingTable()
+			unreachable := router.buildRoutingTable()
+
+			if len(tt.expectedUnreachable) != len(unreachable) {
+				t.Errorf("expected %d unreachable addresses, got %d", len(tt.expectedUnreachable), len(unreachable))
+			}
+
+			for _, addr := range unreachable {
+				if !slices.Contains(tt.expectedUnreachable, addr) {
+					t.Errorf("unreachable address %v not in expected unreachable addresses %v", addr, tt.expectedUnreachable)
+				}
+			}
 
 			if !mapsEqual(router.routingTable, tt.expected) {
 				t.Errorf("expected %v, got %v", tt.expected, router.routingTable)

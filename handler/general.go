@@ -70,7 +70,7 @@ func (ph *PacketHandler) processPacket(udpPacket *sock.Packet) {
 	case pkt.MsgTypeConnect:
 		handleConnect(packet, udpPacket.Addr, ph.router, ph.inSequencing, ph.socket)
 	case pkt.MsgTypeDisconnect:
-		handleDisconnect(packet, ph.inSequencing, ph.router)
+		handleDisconnect(packet, ph.inSequencing, ph.router, ph.socket)
 	case pkt.MsgTypeAcknowledgment:
 		handleAck(packet, ph.socket, ph.outSequencing)
 	case pkt.MsgTypeChatMessage:

@@ -1,13 +1,19 @@
 package reconstruction
 
-import "bjoernblessin.de/chatprotogol/sequencing"
+import (
+	"net/netip"
+
+	"bjoernblessin.de/chatprotogol/sequencing"
+)
 
 type PktSequenceReconstructor struct {
-	sequencing *sequencing.IncomingPktNumHandler
+	sequencing    *sequencing.IncomingPktNumHandler
+	payloadBuffer map[netip.Addr]*buffer // Maps host addresses to buffer information
 }
 
 func NewPktSequenceReconstructor(sequencing *sequencing.IncomingPktNumHandler) *PktSequenceReconstructor {
 	return &PktSequenceReconstructor{
-		sequencing: sequencing,
+		sequencing:    sequencing,
+		payloadBuffer: make(map[netip.Addr]*buffer),
 	}
 }

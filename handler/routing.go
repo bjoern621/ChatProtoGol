@@ -42,7 +42,6 @@ func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr, router *routing.
 	_ = connection.SendRoutedAcknowledgment(sourceAddr.AddrPort().Addr(), packet.Header.PktNum)
 
 	localAddr := socket.MustGetLocalAddress().Addr()
-
 	localLSA, exists := router.GetLSA(localAddr)
 	assert.Assert(exists, "Local LSA should exist for the local address")
 	connection.FloodLSA(localAddr, localLSA)
@@ -54,7 +53,7 @@ func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr, router *routing.
 }
 
 // handleDisconnect processes a disconnect request from a peer.
-func handleDisconnect(packet *pkt.Packet, inSequencing *sequencing.IncomingPktNumHandler, router *routing.Router) {
+func handleDisconnect(packet *pkt.Packet, inSequencing *sequencing.IncomingPktNumHandler, router *routing.Router, socket sock.Socket) {
 	handled := handleRoutingDuplicate(packet, inSequencing)
 	if handled {
 		return
@@ -72,4 +71,9 @@ func handleDisconnect(packet *pkt.Packet, inSequencing *sequencing.IncomingPktNu
 	_ = connection.SendRoutedAcknowledgment(srcAddr, packet.Header.PktNum)
 
 	router.RemoveNeighbor(srcAddr)
+
+	localAddr := socket.MustGetLocalAddress().Addr()
+	localLSA, exists := router.GetLSA(localAddr)
+	assert.Assert(exists, "Local LSA should exist for the local address")
+	connection.FloodLSA(localAddr, localLSA)
 }

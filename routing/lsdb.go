@@ -30,9 +30,9 @@ func (r *Router) recalculateLocalLSA() {
 	r.lsdb[localAddr] = localLSA
 }
 
-// AddLSA adds a new LSA to the LSDB.
+// updateLSA adds a new LSA to the LSDB.
 // Asserts that the sequence number is greater than any existing LSA for the same address.
-func (r *Router) addLSA(addr netip.Addr, seqNum uint32, neighbors []netip.Addr) {
+func (r *Router) updateLSA(addr netip.Addr, seqNum uint32, neighbors []netip.Addr) {
 	existingLSA, exists := r.lsdb[addr]
 	assert.Assert(!(exists && existingLSA.SeqNum >= seqNum), "Cannot add LSA with older or equal sequence number")
 
@@ -42,7 +42,7 @@ func (r *Router) addLSA(addr netip.Addr, seqNum uint32, neighbors []netip.Addr) 
 	}
 }
 
-// getNextSequenceNumber returns the next sequence number for the given address.
+// getNextSequenceNumber returns the next sequence number for the given address's LSA.
 // If the address does not exist in the LSDB, it returns 0 as the default sequence number.
 func (r *Router) getNextSequenceNumber(addr netip.Addr) uint32 {
 	if entry, exists := r.lsdb[addr]; exists {
@@ -118,7 +118,8 @@ func (pq *dijkstraPriorityQueue) update(node *DijkstraNode, newDist int, nextHop
 
 // Creates the current topology of the network based on the LSAs in the LSDB.
 // Runs the Dijkstra algorithm to calculate the shortest paths and build the routing table.
-func (r *Router) buildRoutingTable() {
+// Returns a slice of unreachable addresses that could not be reached during the routing table build process.
+func (r *Router) buildRoutingTable() (unreachableAddrs []netip.Addr) {
 	assert.Assert(len(r.lsdb) > 0, "LSDB must not be empty to build the routing table")
 
 	queue := make(dijkstraPriorityQueue, len(r.lsdb)-1)
@@ -162,12 +163,15 @@ func (r *Router) buildRoutingTable() {
 	heap.Init(&queue)
 
 	r.routingTable = make(map[netip.Addr]netip.AddrPort, len(queue))
+	unreachableAddrs = make([]netip.Addr, 0)
 
 	for queue.Len() > 0 {
 		currentNode := heap.Pop(&queue).(*DijkstraNode)
 
 		if currentNode.Dist == math.MaxInt {
-			break // All remaining nodes are unreachable
+			// All remaining nodes are unreachable
+			unreachableAddrs = append(unreachableAddrs, currentNode.Addr)
+			continue
 		}
 
 		r.routingTable[currentNode.Addr] = *currentNode.NextHop
@@ -202,4 +206,6 @@ func (r *Router) buildRoutingTable() {
 			}
 		}
 	}
+
+	return unreachableAddrs
 }

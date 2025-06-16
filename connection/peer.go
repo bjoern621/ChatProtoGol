@@ -10,7 +10,6 @@ import (
 
 	"bjoernblessin.de/chatprotogol/common"
 	"bjoernblessin.de/chatprotogol/pkt"
-	"bjoernblessin.de/chatprotogol/reconstruction"
 	"bjoernblessin.de/chatprotogol/routing"
 	"bjoernblessin.de/chatprotogol/sequencing"
 	"bjoernblessin.de/chatprotogol/sock"
@@ -58,8 +57,8 @@ func (p *Peer) Delete() {
 		routing.RemoveRoutingEntry(p.Address)
 	}
 	outgoingSequencing.ClearPacketNumbers(p.Address)
-	incomingSequencing.ClearIncomingSequenceNumbers(p.Address)
-	reconstruction.ClearPayloadBuffer(p.Address)
+	incomingSequencing.ClearIncomingPacketNumbers(p.Address)
+	// reconstruction.ClearPayloadBuffer(p.Address)
 }
 
 // SendNewTo sends a packet to the peer at the specified address and port.
