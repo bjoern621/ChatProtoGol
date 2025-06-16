@@ -89,7 +89,7 @@ func (h *OutgoingPktNumHandler) handleAckTimeout(addr netip.Addr, pktNum [4]byte
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	logger.Warnf("ACK timeout for host %s with sequence number %v\n", addr, pktNum)
+	logger.Warnf("ACK timeout for host %s with packet number %v\n", addr, pktNum)
 
 	resendFunc()
 
@@ -98,6 +98,7 @@ func (h *OutgoingPktNumHandler) handleAckTimeout(addr netip.Addr, pktNum [4]byte
 
 	openAck.retries--
 	if openAck.retries <= 0 {
+		logger.Warnf("Removing open acknowledgment for host %s with packet number %v after retries exhausted\n", addr, pktNum)
 		delete(h.openAcks[addr], pktNum)
 		return // No more retries left, remove the open acknowledgment
 	}
