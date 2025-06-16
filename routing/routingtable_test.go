@@ -319,7 +319,7 @@ func TestBuildRoutingTable(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			socket := &MockSocket{}
-			router := NewRouter(socket, nil, nil, nil)
+			router := NewRouter(socket)
 			router.lsdb = tt.lsdb
 			router.neighborTable = tt.neighborTable
 

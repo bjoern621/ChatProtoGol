@@ -10,6 +10,7 @@ import (
 
 	"bjoernblessin.de/chatprotogol/common"
 	"bjoernblessin.de/chatprotogol/pkt"
+	"bjoernblessin.de/chatprotogol/reconstruction"
 	"bjoernblessin.de/chatprotogol/routing"
 	"bjoernblessin.de/chatprotogol/sequencing"
 	"bjoernblessin.de/chatprotogol/sock"
@@ -21,12 +22,14 @@ var socket sock.Socket
 var router *routing.Router
 var incomingSequencing *sequencing.IncomingPktNumHandler
 var outgoingSequencing *sequencing.OutgoingPktNumHandler
+var reconstructor *reconstruction.PktSequenceReconstructor
 
-func SetGlobalVars(s sock.Socket, r *routing.Router, in *sequencing.IncomingPktNumHandler, out *sequencing.OutgoingPktNumHandler) {
+func SetGlobalVars(s sock.Socket, r *routing.Router, in *sequencing.IncomingPktNumHandler, out *sequencing.OutgoingPktNumHandler, recon *reconstruction.PktSequenceReconstructor) {
 	socket = s
 	router = r
 	incomingSequencing = in
 	outgoingSequencing = out
+	reconstructor = recon
 }
 
 // Peer represents another host in the network.

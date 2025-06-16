@@ -4,8 +4,6 @@ import (
 	"net/netip"
 	"sync"
 
-	"bjoernblessin.de/chatprotogol/reconstruction"
-	"bjoernblessin.de/chatprotogol/sequencing"
 	"bjoernblessin.de/chatprotogol/sock"
 )
 
@@ -15,20 +13,14 @@ type Router struct {
 	neighborTable map[netip.Addr]NeighborEntry
 	routingTable  map[netip.Addr]netip.AddrPort // Maps destination IP addresses to the next hop they should use
 	mu            sync.Mutex                    // Protects access to the router's state, including the LSDB, neighbor table, and routing table
-	inSequencing  *sequencing.IncomingPktNumHandler
-	outSequencing *sequencing.OutgoingPktNumHandler
-	reconstructor *reconstruction.PktSequenceReconstructor
 }
 
-func NewRouter(socket sock.Socket, inSequencing *sequencing.IncomingPktNumHandler, outSequencing *sequencing.OutgoingPktNumHandler, reconstructor *reconstruction.PktSequenceReconstructor) *Router {
+func NewRouter(socket sock.Socket) *Router {
 	return &Router{
 		lsdb:          make(map[netip.Addr]LSAEntry),
 		socket:        socket,
 		neighborTable: make(map[netip.Addr]NeighborEntry),
 		routingTable:  make(map[netip.Addr]netip.AddrPort),
-		inSequencing:  inSequencing,
-		outSequencing: outSequencing,
-		reconstructor: reconstructor,
 	}
 }
 
@@ -46,41 +38,29 @@ func (r *Router) AddNeighbor(nextHop netip.AddrPort) {
 
 // RemoveNeighbor removes a neighbor from the router.
 // It removes the neighbor from the neighbor table, recalculates the local LSA, and builds the routing table.
-// May delete hosts that are no longer reachable.
+// Returns a slice of unreachable addresses that could not be reached during the routing table build process.
 // Can be called concurrently.
-func (r *Router) RemoveNeighbor(addr netip.Addr) {
+func (r *Router) RemoveNeighbor(addr netip.Addr) (unreachableAddrs []netip.Addr) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	r.removeNeighbor(addr)
 	r.recalculateLocalLSA()
 	unreachableHosts := r.buildRoutingTable()
-	r.clearUnreachableHosts(unreachableHosts)
+	return unreachableHosts
 }
 
 // UpdateLSA adds a new LSA to the router.
 // It updates the LSA in the LSDB and builds the routing table.
-// May delete hosts that are no longer reachable.
+// Returns a slice of unreachable addresses that could not be reached during the routing table build process.
 // Can be called concurrently.
-func (r *Router) UpdateLSA(srcAddr netip.Addr, seqNum uint32, neighborAddresses []netip.Addr) {
+func (r *Router) UpdateLSA(srcAddr netip.Addr, seqNum uint32, neighborAddresses []netip.Addr) (unreachableAddrs []netip.Addr) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	r.updateLSA(srcAddr, seqNum, neighborAddresses)
 	unreachableHosts := r.buildRoutingTable()
-	r.clearUnreachableHosts(unreachableHosts)
-}
-
-// clearUnreachableHosts clears state for hosts that are no longer reachable.
-// This includes removing their LSAs from the LSDB, their sequencing state and their payload buffer in the reconstruction package.
-// May be called with the zero list in which case it does nothing.
-func (r *Router) clearUnreachableHosts(unreachableHosts []netip.Addr) {
-	for _, addr := range unreachableHosts {
-		delete(r.lsdb, addr)
-		r.inSequencing.ClearIncomingPacketNumbers(addr)
-		r.outSequencing.ClearPacketNumbers(addr)
-		r.reconstructor.ClearPayloadBuffer(addr)
-	}
+	return unreachableHosts
 }
 
 // TODO

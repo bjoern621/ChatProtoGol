@@ -33,7 +33,8 @@ func handleDisconnect(packet *pkt.Packet, inSequencing *sequencing.IncomingPktNu
 
 	_ = connection.SendRoutedAcknowledgment(srcAddr, packet.Header.PktNum)
 
-	router.RemoveNeighbor(srcAddr)
+	unreachableHosts := router.RemoveNeighbor(srcAddr)
+	connection.ClearUnreachableHosts(unreachableHosts)
 
 	localAddr := socket.MustGetLocalAddress().Addr()
 	localLSA, exists := router.GetLSA(localAddr)

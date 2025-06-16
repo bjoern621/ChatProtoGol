@@ -41,7 +41,8 @@ func handleLSA(packet *pkt.Packet, router *routing.Router, inSequencing *sequenc
 		return
 	}
 
-	router.UpdateLSA(lsaOwnerAddr, seqNum, neighborAddresses)
+	unreachableHosts := router.UpdateLSA(lsaOwnerAddr, seqNum, neighborAddresses)
+	connection.ClearUnreachableHosts(unreachableHosts)
 
 	updatedLSA, exists := router.GetLSA(lsaOwnerAddr)
 	if !exists {

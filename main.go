@@ -26,7 +26,7 @@ func main() {
 
 	pktSequenceReconstructor := reconstruction.NewPktSequenceReconstructor(inSequencing)
 
-	router := routing.NewRouter(udpSocket, inSequencing, outSequencing, pktSequenceReconstructor)
+	router := routing.NewRouter(udpSocket)
 
 	cmd.SetGlobalVars(udpSocket, router)
 
@@ -44,7 +44,7 @@ func main() {
 	handler := handler.NewPacketHandler(udpSocket, router, inSequencing, outSequencing, pktSequenceReconstructor)
 	go handler.ListenToPackets()
 
-	connection.SetGlobalVars(udpSocket, router, inSequencing, outSequencing)
+	connection.SetGlobalVars(udpSocket, router, inSequencing, outSequencing, pktSequenceReconstructor)
 
 	localAddr, err := udpSocket.Open(net.IPv4(127, 0, 0, 1))
 	if err != nil {

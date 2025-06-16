@@ -32,7 +32,8 @@ func HandleDisconnect(args []string) {
 
 	go func() {
 		for range handler.SubscribeToReceivedAck(packet) {
-			router.RemoveNeighbor(addr)
+			unreachableHosts := router.RemoveNeighbor(addr)
+			connection.ClearUnreachableHosts(unreachableHosts)
 
 			localAddr := socket.MustGetLocalAddress().Addr()
 			localLSA, exists := router.GetLSA(localAddr)

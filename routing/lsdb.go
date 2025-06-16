@@ -51,6 +51,7 @@ func (r *Router) getNextSequenceNumber(addr netip.Addr) uint32 {
 	return 0 // Default sequence number if not found
 }
 
+// Can be called concurrently.
 func (r *Router) GetLSA(addr netip.Addr) (LSAEntry, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -59,6 +60,16 @@ func (r *Router) GetLSA(addr netip.Addr) (LSAEntry, bool) {
 		return entry, true
 	}
 	return LSAEntry{}, false
+}
+
+// RemoveLSA removes an LSA from the LSDB.
+// Can be called concurrently.
+// It does not affect the routing table directly, SHOULD BE CALLED AFTER GETTING unreachableHosts FROM an routing table update.
+func (r *Router) RemoveLSA(addr netip.Addr) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	delete(r.lsdb, addr)
 }
 
 // GetAvailableLSAs returns a slice of all available LSAs in the LSDB.
