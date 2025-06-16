@@ -83,40 +83,4 @@ func handleDisconnect(packet *pkt.Packet, sourceAddr *net.UDPAddr, inSequencing 
 
 	peer.Delete()
 
-	connection.SendCurrentRoutingTable(connection.GetAllNeighbors())
-}
-
-// handleRoutingTableUpdate processes a routing table update packet from a peer.
-// Send an acknowledgment back to the sender.
-// Update the local routing table with the new information.
-// Forward the routing table to other peers if necessary.
-func handleRoutingTableUpdate(packet *pkt.Packet, sourceAddr *net.UDPAddr, inSequencing *sequencing.IncomingPktNumHandler) {
-	handled := handleRoutingDuplicate(packet, sourceAddr, inSequencing)
-	if handled {
-		return
-	}
-
-	logger.Infof("ROUTING FROM %v %v", packet.Header.SourceAddr, packet.Header.PktNum)
-
-	rt, err := routing.ParseRoutingTableFromPayload(packet.Payload, sourceAddr.AddrPort())
-	if err != nil {
-		logger.Warnf("Failed to parse routing table from payload: %v", err)
-		return
-	}
-
-	routingTableChanged := routing.UpdateRoutingTable(rt, sourceAddr.AddrPort())
-
-	peer, exists := connection.GetPeer(sourceAddr.AddrPort().Addr())
-	if !exists {
-		logger.Warnf("Received routing table update from unknown peer %v", sourceAddr.AddrPort().Addr())
-		return
-	}
-	peer.SendAcknowledgment(packet.Header.PktNum)
-
-	if routingTableChanged { // TODO resend update messages change
-		neighbors := connection.GetAllNeighbors()
-		delete(neighbors, sourceAddr.AddrPort().Addr()) // Exclude the sender from the update
-
-		connection.SendCurrentRoutingTable(neighbors)
-	}
 }

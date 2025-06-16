@@ -1,10 +1,8 @@
 package cmd
 
 import (
+	"fmt"
 	"net/netip"
-
-	"bjoernblessin.de/chatprotogol/connection"
-	"bjoernblessin.de/chatprotogol/pkt"
 )
 
 // HandleDisconnect processes the "disconnect" command to disconnect from a specified peer.
@@ -22,19 +20,5 @@ func HandleDisconnect(args []string) {
 		return
 	}
 
-	peer, found := connection.GetPeer(peerIP)
-	if !found {
-		println("Peer not found:", args[0])
-		return
-	}
-
-	err = peer.SendNew(pkt.MsgTypeDisconnect, true, nil)
-	if err != nil {
-		println("Failed to send disconnect message:", err)
-		return
-	}
-
-	peer.Delete()
-
-	connection.SendCurrentRoutingTable(connection.GetAllNeighbors())
+	fmt.Printf("Disconnecting from %s...\n", peerIP)
 }

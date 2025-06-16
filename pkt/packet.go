@@ -47,15 +47,14 @@ type Packet struct {
 }
 
 const (
-	MsgTypeConnect            = 0x0
-	MsgTypeDisconnect         = 0x1
-	MsgTypeRoutingTableUpdate = 0x2
-	MsgTypeChatMessage        = 0x3
-	MsgTypeFileTransfer       = 0x4
-	MsgTypeResendRequest      = 0x5
-	MsgTypeAcknowledgment     = 0x6
-	MsgTypeLSA                = 0x7
-	MsgTypeDD                 = 0x8
+	MsgTypeConnect        = 0x0
+	MsgTypeDisconnect     = 0x1
+	MsgTypeDD             = 0x2
+	MsgTypeLSA            = 0x3
+	MsgTypeChatMessage    = 0x4
+	MsgTypeFileTransfer   = 0x5
+	MsgTypeAcknowledgment = 0x7
+	MsgTypeFinish         = 0x8
 )
 
 func ParsePacket(data []byte) (*Packet, error) {

@@ -108,15 +108,13 @@ func sendNewTo(addrPort netip.AddrPort, msgType byte, lastBit bool, payload pkt.
 }
 
 var msgTypeNames = map[byte]string{
-	pkt.MsgTypeConnect:            "CONN",
-	pkt.MsgTypeDisconnect:         "DIS",
-	pkt.MsgTypeRoutingTableUpdate: "ROUTING",
-	pkt.MsgTypeChatMessage:        "MSG",
-	pkt.MsgTypeFileTransfer:       "FILE",
-	pkt.MsgTypeResendRequest:      "RESEND",
-	pkt.MsgTypeAcknowledgment:     "ACK",
-	pkt.MsgTypeLSA:                "LSA",
-	pkt.MsgTypeDD:                 "DD",
+	pkt.MsgTypeConnect:        "CONN",
+	pkt.MsgTypeDisconnect:     "DIS",
+	pkt.MsgTypeChatMessage:    "MSG",
+	pkt.MsgTypeFileTransfer:   "FILE",
+	pkt.MsgTypeAcknowledgment: "ACK",
+	pkt.MsgTypeLSA:            "LSA",
+	pkt.MsgTypeDD:             "DD",
 }
 
 // SendReliableRoutedPacket sends a packet.
@@ -272,17 +270,6 @@ func GetAllNeighbors() map[netip.Addr]*Peer {
 	}
 
 	return neighbors
-}
-
-// SendCurrentRoutingTable sends the current routing table to all specified peers.
-func SendCurrentRoutingTable(peerMap map[netip.Addr]*Peer) {
-	payload := routing.FormatRoutingTableForPayload()
-
-	err := SendNewAll(pkt.MsgTypeRoutingTableUpdate, true, payload, peerMap)
-	if err != nil {
-		logger.Warnf("Failed to send routing table update at least one peer: %v", err)
-		return
-	}
 }
 
 // BuildSequencedPacket constructs a packet with the next packet number for the destination address.
