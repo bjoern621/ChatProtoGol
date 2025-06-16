@@ -41,10 +41,10 @@ func (h *IncomingPktNumHandler) ClearIncomingSequenceNumbers(peerAddr netip.Addr
 }
 
 // IsDuplicatePacket checks if the packet is a duplicate, and updates sequencing state.
-// It uses the sequence number from the packet header to determine if it has already been received.
-// This means it should only be used on packets with an UNIQUE sequence number (i.e., packets that have DestAddr == socket.GetLocalAddress() and have message types that provide sequence numbers).
+// It uses the packet number from the packet header to determine if it has already been received.
+// This means it should only be used on packets with an UNIQUE packet number (i.e., packets that have DestAddr == socket.GetLocalAddress() and have message types that provide packet numbers).
 // Returns true if the packet is a duplicate (already received), false otherwise.
-// Errors if the sequence number is too far ahead (more than common.RECEIVE_BUFFER_SIZE).
+// Errors if the packet number is too far ahead (more than common.RECEIVE_BUFFER_SIZE).
 func (h *IncomingPktNumHandler) IsDuplicatePacket(packet *pkt.Packet) (bool, error) {
 	assert.Assert(netip.AddrFrom4(packet.Header.DestAddr) == h.socket.MustGetLocalAddress().Addr(), "isDuplicatePacket should only be called for packets destined for us")
 

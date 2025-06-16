@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net"
+	"net/netip"
 
 	"bjoernblessin.de/chatprotogol/connection"
 	"bjoernblessin.de/chatprotogol/pkt"
@@ -15,14 +16,12 @@ import (
 // handleRoutingDuplicate checks if the packet is a duplicate.
 // If it is, it sends an acknowledgment back to the sender.
 // Returns true if the packet was handled (duplicate or errornous packet), false otherwise.
-func handleRoutingDuplicate(packet *pkt.Packet, sourceAddr *net.UDPAddr, inSequencing *sequencing.IncomingPktNumHandler) (handled bool) {
+func handleRoutingDuplicate(packet *pkt.Packet, inSequencing *sequencing.IncomingPktNumHandler) (handled bool) {
 	duplicate, dupErr := inSequencing.IsDuplicatePacket(packet)
 	if dupErr != nil {
 		return true
 	} else if duplicate {
-		peer, exists := connection.GetPeer(sourceAddr.AddrPort().Addr())
-		assert.Assert(exists, "Duplicate packet should have a peer")
-		peer.SendAcknowledgment(packet.Header.PktNum)
+		_ = connection.SendRoutedAcknowledgment(netip.AddrFrom4(packet.Header.SourceAddr), packet.Header.PktNum)
 		return true
 	}
 
@@ -30,11 +29,8 @@ func handleRoutingDuplicate(packet *pkt.Packet, sourceAddr *net.UDPAddr, inSeque
 }
 
 // handleConnect processes a connection request from a peer.
-// It adds the (maybe new) peer to the routing table with a hop count of 1.
-// It sends an acknowledgment back to the sender.
-// It sends the current routing table to all neighbors (including the new peer).
 func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr, router *routing.Router, inSequencing *sequencing.IncomingPktNumHandler, socket sock.Socket) {
-	handled := handleRoutingDuplicate(packet, sourceAddr, inSequencing)
+	handled := handleRoutingDuplicate(packet, inSequencing)
 	if handled {
 		return
 	}
@@ -58,29 +54,22 @@ func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr, router *routing.
 }
 
 // handleDisconnect processes a disconnect request from a peer.
-// It sends an acknowledgment back to the sender.
-// It removes all peers routed trough the disconnected peer from the routing table and clears their sequence numbers.
-// It sends an updated routing table to all neighbors (excluding the disconnected peer).
-func handleDisconnect(packet *pkt.Packet, sourceAddr *net.UDPAddr, inSequencing *sequencing.IncomingPktNumHandler) {
-	handled := handleRoutingDuplicate(packet, sourceAddr, inSequencing)
+func handleDisconnect(packet *pkt.Packet, inSequencing *sequencing.IncomingPktNumHandler, router *routing.Router) {
+	handled := handleRoutingDuplicate(packet, inSequencing)
 	if handled {
 		return
 	}
 
 	logger.Infof("DISCO FROM %v %v", packet.Header.SourceAddr, packet.Header.PktNum)
 
-	if isNeighbor, _ := routing.IsNeighbor2(sourceAddr.AddrPort().Addr()); !isNeighbor {
-		logger.Warnf("Received disconnect from non-neighbor peer %v", sourceAddr.AddrPort().Addr())
+	srcAddr := netip.AddrFrom4(packet.Header.SourceAddr)
+
+	if isNeighbor, _ := router.IsNeighbor(srcAddr); !isNeighbor {
+		logger.Warnf("Received disconnect from non-neighbor peer %v", srcAddr)
 		return
 	}
 
-	peer, exists := connection.GetPeer(sourceAddr.AddrPort().Addr())
-	if !exists {
-		logger.Warnf("Received disconnect from unknown peer %v", sourceAddr.AddrPort().Addr())
-		return
-	}
-	peer.SendAcknowledgment(packet.Header.PktNum)
+	_ = connection.SendRoutedAcknowledgment(srcAddr, packet.Header.PktNum)
 
-	peer.Delete()
-
+	router.RemoveNeighbor(srcAddr)
 }

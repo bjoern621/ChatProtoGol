@@ -20,6 +20,15 @@ func (r *Router) addNeighbor(nextHop netip.AddrPort) {
 	r.neighborTable[nextHop.Addr()] = NeighborEntry{NextHop: nextHop}
 }
 
+// removeNeighbor removes a neighbor from the neighbor table.
+// Asserts that the neighbor exists before removing it.
+func (r *Router) removeNeighbor(addr netip.Addr) {
+	_, exists := r.neighborTable[addr]
+	assert.Assert(exists, "Neighbor does not exist in the neighbor table: %s", addr.String())
+
+	delete(r.neighborTable, addr)
+}
+
 // IsNeighbor checks if the given address is a neighbor.
 // It returns a boolean indicating if the address is a neighbor and if so, the address and port for that neighbor.
 // Can be called concurrently.

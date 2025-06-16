@@ -36,6 +36,18 @@ func (r *Router) AddNeighbor(nextHop netip.AddrPort) {
 	r.buildRoutingTable()
 }
 
+// RemoveNeighbor removes a neighbor from the router.
+// It removes the neighbor from the neighbor table, recalculates the local LSA, and builds the routing table.
+// Can be called concurrently.
+func (r *Router) RemoveNeighbor(addr netip.Addr) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.removeNeighbor(addr)
+	r.recalculateLocalLSA()
+	r.buildRoutingTable()
+}
+
 // AddLSA adds a new LSA to the router.
 // It updates the LSA in the LSDB and builds the routing table.
 // Can be called concurrently.
