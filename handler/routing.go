@@ -49,17 +49,7 @@ func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr, router *routing.
 	assert.Assert(exists, "Local LSA should exist for the local address")
 	connection.FloodLSA(localLSA)
 
-	// Send DD packet
-	routingEntries := routing.GetRoutingTableEntries()
-	payload := make(pkt.Payload, 0, len(routingEntries))
-	for addr := range routingEntries {
-		addrBytes := addr.As4()
-		payload = append(payload, addrBytes[:]...)
-	}
-
-	ddPacket := connection.BuildSequencedPacket(pkt.MsgTypeDD, true, payload, sourceAddr.AddrPort().Addr())
-
-	err := connection.SendReliableRoutedPacket(ddPacket)
+	err := connection.SendDD(sourceAddr.AddrPort().Addr())
 	if err != nil {
 		logger.Warnf("Failed to send database description to %s: %v", sourceAddr.AddrPort(), err)
 	}

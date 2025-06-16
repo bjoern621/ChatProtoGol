@@ -347,3 +347,17 @@ func FloodLSA(lsa routing.LSAEntry) {
 		}
 	}
 }
+
+// SendDD sends a Database Description representing our LSDB to the destination address.
+func SendDD(destAddr netip.Addr) error {
+	existingLSAs := router.GetAvailableLSAs()
+	payload := make(pkt.Payload, 0, len(existingLSAs))
+	for _, addr := range existingLSAs {
+		addrBytes := addr.As4()
+		payload = append(payload, addrBytes[:]...)
+	}
+
+	packet := BuildSequencedPacket(pkt.MsgTypeDD, true, payload, destAddr)
+
+	return SendReliableRoutedPacket(packet)
+}

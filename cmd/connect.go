@@ -89,17 +89,7 @@ func handleConnectAck(addrPort netip.AddrPort, socket sock.Socket) {
 	assert.Assert(exists, "Local LSA should exist for the local address")
 	connection.FloodLSA(localLSA)
 
-	// Send DD packet
-	routingEntries := router.GetRoutingTable()
-	payload := make(pkt.Payload, 0, len(routingEntries))
-	for addr := range routingEntries {
-		addrBytes := addr.As4()
-		payload = append(payload, addrBytes[:]...)
-	}
-
-	packet := connection.BuildSequencedPacket(pkt.MsgTypeDD, true, payload, addrPort.Addr())
-
-	err := connection.SendReliableRoutedPacket(packet)
+	err := connection.SendDD(addrPort.Addr())
 	if err != nil {
 		logger.Warnf("Failed to send database description to %s: %v", addrPort, err)
 	}

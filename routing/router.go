@@ -90,15 +90,6 @@ func RemoveRoutingEntry(addr netip.Addr) {
 	// For now, we do nothing
 }
 
-func ClearRoutingTable() {
-	// This function should clear the routing table
-	// For now, we do nothing
-}
-func ClearRoutingTableEntries() {
-	// This function should clear the routing table entries
-	// For now, we do nothing
-}
-
 func GetNextHop2(addr netip.Addr) (netip.AddrPort, bool) {
 	// This function should return the next hop for the specified address
 	// For now, we return an empty AddrPort and false
