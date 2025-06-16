@@ -76,7 +76,7 @@ func (ph *PacketHandler) processPacket(udpPacket *sock.Packet) {
 	case pkt.MsgTypeChatMessage:
 		handleMsg(packet, ph.socket, ph.inSequencing, ph.reconstructor)
 	case pkt.MsgTypeDD:
-		handleDatabaseDescription(packet, ph.router, ph.inSequencing, ph.socket)
+		handleDatabaseDescription(packet, ph.router, ph.inSequencing)
 	case pkt.MsgTypeLSA:
 		handleLSA(packet, ph.router, ph.inSequencing)
 	default:

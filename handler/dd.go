@@ -2,7 +2,6 @@ package handler
 
 import (
 	"errors"
-	"fmt"
 	"net/netip"
 
 	"slices"
@@ -11,11 +10,10 @@ import (
 	"bjoernblessin.de/chatprotogol/pkt"
 	"bjoernblessin.de/chatprotogol/routing"
 	"bjoernblessin.de/chatprotogol/sequencing"
-	"bjoernblessin.de/chatprotogol/sock"
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
 
-func handleDatabaseDescription(packet *pkt.Packet, router *routing.Router, inSequencing *sequencing.IncomingPktNumHandler, socket sock.Socket) {
+func handleDatabaseDescription(packet *pkt.Packet, router *routing.Router, inSequencing *sequencing.IncomingPktNumHandler) {
 	duplicate, dupErr := inSequencing.IsDuplicatePacket(packet)
 	if dupErr != nil {
 		return
@@ -38,7 +36,7 @@ func handleDatabaseDescription(packet *pkt.Packet, router *routing.Router, inSeq
 
 	missing := getMissingLSAs(existingAddresses, router)
 
-	fmt.Printf("I have %v LSAs, peer has %v LSAs, missing %v LSAs\n", router.GetAvailableLSAs(), existingAddresses, missing)
+	logger.Infof("I have %v LSAs, peer has %v LSAs, missing %v LSAs\n", router.GetAvailableLSAs(), existingAddresses, missing)
 
 	for _, missingAddr := range missing {
 		lsa, exists := router.GetLSA(missingAddr)
