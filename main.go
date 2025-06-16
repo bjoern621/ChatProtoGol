@@ -41,7 +41,7 @@ func main() {
 	pktSequenceReconstructor := reconstruction.NewPktSequenceReconstructor(inSequencing)
 
 	handler := handler.NewPacketHandler(udpSocket, router, inSequencing, outSequencing, pktSequenceReconstructor)
-	handler.ListenToPackets()
+	go handler.ListenToPackets()
 
 	connection.SetGlobalVars(udpSocket, router, inSequencing, outSequencing)
 

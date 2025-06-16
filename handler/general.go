@@ -3,6 +3,7 @@
 package handler
 
 import (
+	"bjoernblessin.de/chatprotogol/common"
 	"bjoernblessin.de/chatprotogol/pkt"
 	"bjoernblessin.de/chatprotogol/reconstruction"
 	"bjoernblessin.de/chatprotogol/routing"
@@ -29,12 +30,19 @@ func NewPacketHandler(socket sock.Socket, router *routing.Router, inSequencing *
 	}
 }
 
+// ListenToPackets starts listening to incoming packets on the socket.
+// It should be called in a separate goroutine to avoid blocking.
 func (ph *PacketHandler) ListenToPackets() {
-	go func() {
-		for packet := range ph.socket.Subscribe() {
+	var sem = make(chan struct{}, common.PACKET_HANDLER_GOROUTINES)
+
+	for packet := range ph.socket.Subscribe() {
+		sem <- struct{}{} // Acquire a semaphore slot
+
+		go func() {
 			ph.processPacket(packet)
-		}
-	}()
+			<-sem // Release the semaphore slot
+		}()
+	}
 }
 
 // processPacket processes an incoming UDP packet.
