@@ -190,7 +190,11 @@ func (r *Router) buildRoutingTable() {
 				}
 			}
 
-			assert.IsNotNil(neighborNode, "Neighbor node should exist in the queue")
+			if neighborNode == nil {
+				// If the neighbor is not in the queue, it means it's LSA is not present (yet) but it's a neighbor of another node where we have the LSA.
+				// We don't add here, the neighbor is considered unreachable for now.
+				continue
+			}
 
 			// Update the neighbor if a shorter path is found
 			if currentNode.Dist+1 < neighborNode.Dist {
