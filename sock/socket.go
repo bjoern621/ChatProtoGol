@@ -107,6 +107,7 @@ func (s *udpSocket) readLoop() {
 		s.packetObservable.NotifyObservers(&Packet{addr, buffer[:n]})
 	}
 }
+
 func (s *udpSocket) SendTo(addr *net.UDPAddr, data []byte) error {
 	assert.IsNotNil(s.udpSocket, "UDP socket is not initialized.")
 
