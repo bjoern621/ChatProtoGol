@@ -43,13 +43,7 @@ func handleAck(packet *pkt.Packet, socket sock.Socket, outSequencing *sequencing
 	if destAddr != socket.MustGetLocalAddress().Addr() {
 		// The acknowledgment is for another peer, forward it
 
-		destPeer, found := connection.GetPeer(destAddr)
-		if !found {
-			logger.Warnf("No peer found for destination address %s, can't forward", destAddr)
-			return
-		}
-
-		destPeer.Forward(packet)
+		connection.ForwardRouted(packet)
 		return
 	}
 

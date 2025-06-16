@@ -354,3 +354,26 @@ func SendDD(destAddr netip.Addr) error {
 
 	return SendReliableRoutedPacket(packet)
 }
+
+// ForwardRouted forwards a packet to the destination address defined in the packet header.
+// Routed: Uses the routing table to determine the next hop.
+// This function automatically decrements the TTL by one.
+// Timeouts and resends are NOT handled (should be handled by source peer).
+// Errors if the TTL is already zero or less.
+func ForwardRouted(packet *pkt.Packet) error {
+	destinationIP := netip.AddrFrom4(packet.Header.DestAddr)
+
+	nextHop, found := router.GetNextHop(destinationIP)
+	if !found {
+		return errors.New("no next hop found for the destination address")
+	}
+
+	err := SendPacketTo(nextHop, packet)
+	if err != nil {
+		return err
+	}
+
+	logger.Infof("FORWARDED %s %d to %v", msgTypeNames[packet.GetMessageType()], packet.Header.PktNum, packet.Header.DestAddr)
+
+	return nil
+}
