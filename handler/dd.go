@@ -45,7 +45,7 @@ func handleDatabaseDescription(packet *pkt.Packet, router *routing.Router, inSeq
 		if !exists {
 			continue // LSDB changed between getMissingLSAs() and here (very unlikely)
 		}
-		connection.FloodLSA(lsa)
+		connection.FloodLSA(missingAddr, lsa)
 	}
 }
 

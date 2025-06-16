@@ -43,11 +43,13 @@ func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr, router *routing.
 
 	router.AddNeighbor(sourceAddr.AddrPort())
 
-	connection.SendRoutedAcknowledgment(sourceAddr.AddrPort().Addr(), packet.Header.PktNum)
+	_ = connection.SendRoutedAcknowledgment(sourceAddr.AddrPort().Addr(), packet.Header.PktNum)
 
-	localLSA, exists := router.GetLSA(socket.MustGetLocalAddress().Addr())
+	localAddr := socket.MustGetLocalAddress().Addr()
+
+	localLSA, exists := router.GetLSA(localAddr)
 	assert.Assert(exists, "Local LSA should exist for the local address")
-	connection.FloodLSA(localLSA)
+	connection.FloodLSA(localAddr, localLSA)
 
 	err := connection.SendDD(sourceAddr.AddrPort().Addr())
 	if err != nil {

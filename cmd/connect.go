@@ -85,9 +85,11 @@ func printUsage() {
 func handleConnectAck(addrPort netip.AddrPort, socket sock.Socket) {
 	router.AddNeighbor(addrPort)
 
-	localLSA, exists := router.GetLSA(socket.MustGetLocalAddress().Addr())
+	localAddr := socket.MustGetLocalAddress().Addr()
+
+	localLSA, exists := router.GetLSA(localAddr)
 	assert.Assert(exists, "Local LSA should exist for the local address")
-	connection.FloodLSA(localLSA)
+	connection.FloodLSA(localAddr, localLSA)
 
 	err := connection.SendDD(addrPort.Addr())
 	if err != nil {

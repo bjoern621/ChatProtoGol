@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net"
 	"net/netip"
+	"slices"
 
 	"bjoernblessin.de/chatprotogol/common"
 	"bjoernblessin.de/chatprotogol/pkt"
@@ -323,11 +324,12 @@ func SendRoutedAcknowledgment(peerAddr netip.Addr, pktNum [4]byte) error {
 }
 
 // FloodLSA sends a Link State Advertisement (LSA) to all neighbors.
-func FloodLSA(lsa routing.LSAEntry) {
+// Optionally, it can exclude certain addresses (neighbors) from receiving the LSA.
+func FloodLSA(lsaOwner netip.Addr, lsa routing.LSAEntry, exceptAddrs ...netip.Addr) {
 	payload := make(pkt.Payload, 0, 8+len(lsa.Neighbors)*4)
 
-	localAddressBytes := socket.MustGetLocalAddress().Addr().As4()
-	payload = append(payload, localAddressBytes[:]...)
+	lsaOwnerBytes := lsaOwner.As4()
+	payload = append(payload, lsaOwnerBytes[:]...)
 
 	seqNumBytes := make([]byte, 4)
 	binary.BigEndian.PutUint32(seqNumBytes, lsa.SeqNum)
@@ -339,6 +341,10 @@ func FloodLSA(lsa routing.LSAEntry) {
 	}
 
 	for destinationAddr := range router.GetNeighbors() {
+		if slices.Contains(exceptAddrs, destinationAddr) {
+			continue
+		}
+
 		packet := BuildSequencedPacket(pkt.MsgTypeLSA, true, payload, destinationAddr)
 
 		err := SendReliableRoutedPacket(packet)

@@ -27,27 +27,29 @@ func handleLSA(packet *pkt.Packet, router *routing.Router, inSequencing *sequenc
 
 	_ = connection.SendRoutedAcknowledgment(sourceAddr, packet.Header.PktNum)
 
-	srcAddr, seqNum, neighborAddresses, err := parseLSAPayload(packet.Payload)
+	lsaOwnerAddr, seqNum, neighborAddresses, err := parseLSAPayload(packet.Payload)
 	if err != nil {
 		logger.Warnf("Failed to parse LSA payload: %v", err)
 		return
 	}
 
-	existingLSA, exists := router.GetLSA(sourceAddr)
+	logger.Infof("LSA of %v with seqnum %d, neighbors: %v", lsaOwnerAddr, seqNum, neighborAddresses)
+
+	existingLSA, exists := router.GetLSA(lsaOwnerAddr)
 	if exists && existingLSA.SeqNum >= seqNum {
-		logger.Infof("Received LSA of %v(seq num: %v) from %v(pkt num: %v), but already have seqnum %d", srcAddr, seqNum, sourceAddr, packet.Header.PktNum, existingLSA.SeqNum)
+		logger.Infof("Received LSA of %v(seqnum: %v) from %v(pkt num: %v), but already have seqnum %d", lsaOwnerAddr, seqNum, sourceAddr, packet.Header.PktNum, existingLSA.SeqNum)
 		return
 	}
 
-	router.AddLSA(srcAddr, seqNum, neighborAddresses)
+	router.AddLSA(lsaOwnerAddr, seqNum, neighborAddresses)
 
-	updatedLSA, exists := router.GetLSA(srcAddr)
+	updatedLSA, exists := router.GetLSA(lsaOwnerAddr)
 	if !exists {
-		logger.Warnf("LSA for %v not found after adding it to the LSDB", srcAddr)
+		logger.Warnf("LSA for %v not found after adding it to the LSDB", lsaOwnerAddr)
 		return
 	}
 
-	connection.FloodLSA(updatedLSA) // TODO dont send to sender
+	connection.FloodLSA(lsaOwnerAddr, updatedLSA, sourceAddr)
 }
 
 func parseLSAPayload(payload pkt.Payload) (srcAddr netip.Addr, seqNum uint32, neighborAddresses []netip.Addr, err error) {
