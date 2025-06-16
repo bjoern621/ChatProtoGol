@@ -41,7 +41,7 @@ func (r *Router) AddNeighbor(nextHop netip.AddrPort) {
 
 	r.addNeighbor(nextHop)
 	r.recalculateLocalLSA()
-	r.buildRoutingTable()
+	_ = r.buildRoutingTable() // there should be no unreachable hosts
 }
 
 // RemoveNeighbor removes a neighbor from the router.
