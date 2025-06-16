@@ -23,6 +23,9 @@ type buffer struct {
 // ClearPayloadBuffer clears the payload buffer for a specific host.
 // This should be called when the host is no longer needed, such as after a "full" disconnect.
 func (r *PktSequenceReconstructor) ClearPayloadBuffer(addr netip.Addr) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	delete(r.payloadBuffer, addr)
 }
 
@@ -31,6 +34,9 @@ func (r *PktSequenceReconstructor) ClearPayloadBuffer(addr netip.Addr) {
 // If the message is complete, it returns the complete message and a flag indicating readiness.
 // The local buffer is cleared after returning the complete message, so the returned message should be copied if needed later.
 func (r *PktSequenceReconstructor) HandleIncomingMsgPacket(packet *pkt.Packet, sourceAddr netip.Addr) (completeMsg []byte, isReady bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	if _, exists := r.payloadBuffer[sourceAddr]; !exists {
 		// Received first packet of a sequence from this host
 		r.payloadBuffer[sourceAddr] = &buffer{
@@ -61,7 +67,7 @@ func (r *PktSequenceReconstructor) HandleIncomingMsgPacket(packet *pkt.Packet, s
 		var seqNumBytes [4]byte
 		binary.BigEndian.PutUint32(seqNumBytes[:], seqNum)
 		payload, exists := r.payloadBuffer[sourceAddr].payloads[seqNumBytes]
-		assert.Assert(exists, "Payload should exist for sequence number %d", seqNum)
+		assert.Assert(exists, "Payload should exist for packet number %d", seqNum)
 
 		completeMsg = append(completeMsg, payload...)
 	}
