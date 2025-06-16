@@ -57,7 +57,7 @@ func (p *Peer) Delete() {
 		// If the peer is not a neighbor, we still need to clear the peer's routing entry.
 		routing.RemoveRoutingEntry(p.Address)
 	}
-	outgoingSequencing.ClearSequenceNumbers(p.Address)
+	outgoingSequencing.ClearPacketNumbers(p.Address)
 	incomingSequencing.ClearIncomingSequenceNumbers(p.Address)
 	reconstruction.ClearPayloadBuffer(p.Address)
 }
@@ -189,7 +189,7 @@ func (p *Peer) SendNew(msgType byte, lastBit bool, payload pkt.Payload) error {
 		return errors.New("no next hop found for the peer")
 	}
 
-	seqNum := outgoingSequencing.GetNextSequenceNumber(p.Address)
+	seqNum := outgoingSequencing.GetNextpacketNumber(p.Address)
 
 	return SendNewTo(nextHopAddrPort, msgType, lastBit, payload, p.Address, seqNum)
 }
@@ -274,7 +274,7 @@ func GetAllNeighbors() map[netip.Addr]*Peer {
 
 // BuildSequencedPacket constructs a packet with the next packet number for the destination address.
 func BuildSequencedPacket(msgType byte, lastBit bool, payload pkt.Payload, destAddr netip.Addr) *pkt.Packet {
-	return buildPacket(msgType, lastBit, payload, destAddr, outgoingSequencing.GetNextSequenceNumber(destAddr))
+	return buildPacket(msgType, lastBit, payload, destAddr, outgoingSequencing.GetNextpacketNumber(destAddr))
 }
 
 func buildPacket(msgType byte, lastBit bool, payload pkt.Payload, destAddr netip.Addr, pktNum [4]byte) *pkt.Packet {
