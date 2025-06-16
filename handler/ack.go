@@ -29,7 +29,7 @@ func SubscribeToReceivedAck(packet *pkt.Packet) chan any {
 	}
 
 	if _, exists := ackObservers[id]; !exists {
-		ackObservers[id] = observer.NewObservable[any]()
+		ackObservers[id] = observer.NewObservable[any](1)
 		assert.Assert(len(ackObservers) <= 256, "Too many ACK listeners registered, max is 256")
 	}
 

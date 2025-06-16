@@ -8,16 +8,20 @@ import (
 
 // Observable manages a set of subscribers (channels) that receive notifications.
 type Observable[T any] struct {
-	observers map[chan T]struct{}
-	mu        sync.RWMutex
-	closed    bool
+	observers  map[chan T]struct{}
+	mu         sync.RWMutex
+	closed     bool
+	bufferSize int
 }
 
 // NewObservable creates a new Observable instance.
+// bufferSize specifies the size of the channel buffer for each subscriber (0: unbuffered, 1+: size of buffer).
+// New messages will be discarded if the subscriber's channel is full.
 // Example: stringObservable := NewObservable[string]() creates an observable for string events.
-func NewObservable[T any]() *Observable[T] {
+func NewObservable[T any](bufferSize int) *Observable[T] {
 	return &Observable[T]{
-		observers: make(map[chan T]struct{}),
+		observers:  make(map[chan T]struct{}),
+		bufferSize: bufferSize,
 	}
 }
 
@@ -35,7 +39,7 @@ func (o *Observable[T]) Subscribe() chan T {
 		return ch
 	}
 
-	ch := make(chan T, 1)
+	ch := make(chan T, o.bufferSize)
 	o.observers[ch] = struct{}{}
 	return ch
 }
@@ -97,7 +101,7 @@ func (o *Observable[T]) NotifyObservers(data T) {
 		case ch <- data:
 		default:
 			// Subscriber channel is full or closed, skip sending to this one
-			logger.Warnf("Subscriber channel is full or closed, skipping notification for %T", ch)
+			logger.Warnf("Observable[%T](%p): Subscriber channel is full or closed, skipping notification", data, o)
 		}
 	}
 }

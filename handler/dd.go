@@ -46,30 +46,6 @@ func handleDatabaseDescription(packet *pkt.Packet, router *routing.Router, inSeq
 	}
 }
 
-// func sendLSA(lsaAddr netip.Addr, destinationAddr netip.Addr, router *routing.Router, socket sock.Socket) {
-// 	lsa, exists := router.GetLSA(lsaAddr)
-// 	assert.Assert(exists, "LSA should exist for the address")
-
-// 	payload := make(pkt.Payload, 0, 8+len(lsa.Neighbors)*4)
-
-// 	localAddressBytes := socket.MustGetLocalAddress().Addr().As4()
-// 	payload = append(payload, localAddressBytes[:]...)
-
-// 	binary.BigEndian.PutUint32(payload[4:8], lsa.SeqNum)
-
-// 	for _, neighborAddr := range lsa.Neighbors {
-// 		addrBytes := neighborAddr.As4()
-// 		payload = append(payload, addrBytes[:]...)
-// 	}
-
-// 	packet := connection.BuildSequencedPacket(pkt.MsgTypeLSA, true, payload, destinationAddr)
-
-// 	err := connection.SendReliableRoutedPacket(packet)
-// 	if err != nil {
-// 		logger.Warnf("Failed to send LSA for %s: %v", destinationAddr, err)
-// 	}
-// }
-
 // getMissingLSAs compares the existing entries with the LSAs in the LSDB.
 // It returns a slice of addresses that are in the local LSDB but not in the existing entries.
 // This is used to determine which LSAs need to be sent to the peer.

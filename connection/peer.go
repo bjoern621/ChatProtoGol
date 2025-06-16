@@ -329,7 +329,9 @@ func FloodLSA(lsa routing.LSAEntry) {
 	localAddressBytes := socket.MustGetLocalAddress().Addr().As4()
 	payload = append(payload, localAddressBytes[:]...)
 
-	binary.BigEndian.PutUint32(payload[4:8], lsa.SeqNum)
+	seqNumBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(seqNumBytes, lsa.SeqNum)
+	payload = append(payload, seqNumBytes...)
 
 	for _, neighborAddr := range lsa.Neighbors {
 		addrBytes := neighborAddr.As4()

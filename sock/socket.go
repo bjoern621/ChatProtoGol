@@ -52,7 +52,7 @@ type Packet struct {
 
 func NewUDPSocket() *udpSocket {
 	return &udpSocket{
-		packetObservable: observer.NewObservable[*Packet](),
+		packetObservable: observer.NewObservable[*Packet](common.SOCKET_RECEIVE_BUFFER_SIZE),
 	}
 }
 

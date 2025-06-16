@@ -36,6 +36,17 @@ func (r *Router) AddNeighbor(nextHop netip.AddrPort) {
 	r.buildRoutingTable()
 }
 
+// AddLSA adds a new LSA to the router.
+// It updates the LSA in the LSDB and builds the routing table.
+// Can be called concurrently.
+func (r *Router) AddLSA(srcAddr netip.Addr, seqNum uint32, neighborAddresses []netip.Addr) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.addLSA(srcAddr, seqNum, neighborAddresses)
+	r.buildRoutingTable()
+}
+
 // TODO
 type Rtable struct {
 	Entries map[netip.Addr]ee

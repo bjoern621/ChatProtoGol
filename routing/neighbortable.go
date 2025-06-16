@@ -22,10 +22,15 @@ func (r *Router) addNeighbor(nextHop netip.AddrPort) {
 
 // IsNeighbor checks if the given address is a neighbor.
 // It returns a boolean indicating if the address is a neighbor and if so, the address and port for that neighbor.
+// Can be called concurrently.
 func (r *Router) IsNeighbor(addr netip.Addr) (bool, netip.AddrPort) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	return r.isNeighbor(addr)
+}
+
+func (r *Router) isNeighbor(addr netip.Addr) (bool, netip.AddrPort) {
 	entry, exists := r.neighborTable[addr]
 	if !exists {
 		return false, netip.AddrPort{}
@@ -33,6 +38,7 @@ func (r *Router) IsNeighbor(addr netip.Addr) (bool, netip.AddrPort) {
 	return true, entry.NextHop
 }
 
+// Can be called concurrently.
 func (r *Router) GetNeighbors() map[netip.Addr]netip.AddrPort {
 	r.mu.Lock()
 	defer r.mu.Unlock()

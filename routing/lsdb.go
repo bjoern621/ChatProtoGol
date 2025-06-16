@@ -30,6 +30,18 @@ func (r *Router) recalculateLocalLSA() {
 	r.lsdb[localAddr] = localLSA
 }
 
+// AddLSA adds a new LSA to the LSDB.
+// Asserts that the sequence number is greater than any existing LSA for the same address.
+func (r *Router) addLSA(addr netip.Addr, seqNum uint32, neighbors []netip.Addr) {
+	existingLSA, exists := r.lsdb[addr]
+	assert.Assert(!(exists && existingLSA.SeqNum >= seqNum), "Cannot add LSA with older or equal sequence number")
+
+	r.lsdb[addr] = LSAEntry{
+		SeqNum:    seqNum,
+		Neighbors: neighbors,
+	}
+}
+
 // getNextSequenceNumber returns the next sequence number for the given address.
 // If the address does not exist in the LSDB, it returns 0 as the default sequence number.
 func (r *Router) getNextSequenceNumber(addr netip.Addr) uint32 {
@@ -119,7 +131,7 @@ func (r *Router) buildRoutingTable() {
 
 		var nextHop *netip.AddrPort
 		var dist int
-		isNeighbor, addrPort := r.IsNeighbor(addr)
+		isNeighbor, addrPort := r.isNeighbor(addr)
 		if isNeighbor {
 			nextHop = &addrPort
 			dist = 1 // Direct neighbors have a distance of 1
