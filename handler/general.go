@@ -74,11 +74,13 @@ func (ph *PacketHandler) processPacket(udpPacket *sock.Packet) {
 	case pkt.MsgTypeAcknowledgment:
 		handleAck(packet, ph.socket, ph.outSequencing)
 	case pkt.MsgTypeChatMessage:
-		handleMsg(packet, ph.socket, ph.inSequencing, ph.reconstructor)
+		handleMsg(packet, ph.socket, ph.inSequencing)
 	case pkt.MsgTypeDD:
 		handleDatabaseDescription(packet, ph.router, ph.inSequencing)
 	case pkt.MsgTypeLSA:
 		handleLSA(packet, ph.router, ph.inSequencing)
+	case pkt.MsgTypeFinish:
+		handleFinish(packet, ph.inSequencing, ph.reconstructor)
 	default:
 		logger.Warnf("Unhandled packet type: %v from %v to %v", packet.GetMessageType(), packet.Header.SourceAddr, packet.Header.DestAddr)
 		return

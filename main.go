@@ -28,7 +28,7 @@ func main() {
 
 	router := routing.NewRouter(udpSocket)
 
-	cmd.SetGlobalVars(udpSocket, router)
+	cmd.SetGlobalVars(udpSocket, router, outSequencing)
 
 	reader := inputreader.NewInputReader(udpSocket)
 

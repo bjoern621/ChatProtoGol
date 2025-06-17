@@ -5,7 +5,6 @@ import (
 	"net/netip"
 
 	"bjoernblessin.de/chatprotogol/connection"
-	"bjoernblessin.de/chatprotogol/handler"
 	"bjoernblessin.de/chatprotogol/pkt"
 	"bjoernblessin.de/chatprotogol/util/assert"
 )
@@ -31,18 +30,21 @@ func HandleDisconnect(args []string) {
 	packet := connection.BuildSequencedPacket(pkt.MsgTypeDisconnect, true, nil, addr)
 
 	go func() {
-		for range handler.SubscribeToReceivedAck(packet) {
-			unreachableHosts := router.RemoveNeighbor(addr)
-			connection.ClearUnreachableHosts(unreachableHosts)
-
-			localAddr := socket.MustGetLocalAddress().Addr()
-			localLSA, exists := router.GetLSA(localAddr)
-			assert.Assert(exists, "Local LSA should exist for the local address")
-			connection.FloodLSA(localAddr, localLSA)
-
-			fmt.Printf("Disconnected from %s\n", addr)
-			break
+		success := <-outSequencing.SubscribeToReceivedAck(packet)
+		if !success {
+			fmt.Printf("Failed to disconnect from %s: No ACK received\n", addr)
+			fmt.Printf("Disconnecting from %s anyway...\n", addr)
 		}
+
+		unreachableHosts := router.RemoveNeighbor(addr)
+		connection.ClearUnreachableHosts(unreachableHosts)
+
+		localAddr := socket.MustGetLocalAddress().Addr()
+		localLSA, exists := router.GetLSA(localAddr)
+		assert.Assert(exists, "Local LSA should exist for the local address")
+		connection.FloodLSA(localAddr, localLSA)
+
+		fmt.Printf("Disconnected from %s\n", addr)
 	}()
 
 	err = connection.SendReliableRoutedPacket(packet)

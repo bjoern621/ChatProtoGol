@@ -39,6 +39,7 @@ var msgTypeNames = map[byte]string{
 	pkt.MsgTypeAcknowledgment: "ACK",
 	pkt.MsgTypeLSA:            "LSA",
 	pkt.MsgTypeDD:             "DD",
+	pkt.MsgTypeFinish:         "FIN",
 }
 
 // SendReliableRoutedPacket sends a packet.
@@ -57,7 +58,7 @@ func SendReliableRoutedPacket(packet *pkt.Packet) error {
 		return err
 	}
 
-	outgoingSequencing.AddOpenAck(destinationIP, packet.Header.PktNum, func() {
+	outgoingSequencing.AddOpenAck(packet, func() {
 		nextHop, found := router.GetNextHop(destinationIP) // Get the current next hop again (it may have changed)
 		if !found {
 			logger.Infof("Host %s is no longer reachable, removing open acknowledgment for packet number %v", destinationIP, packet.Header.PktNum)
@@ -74,14 +75,12 @@ func SendReliableRoutedPacket(packet *pkt.Packet) error {
 // Reliable: Resends and timeouts are handled.
 // To: Send the packet to a specific address and port.
 func SendReliablePacketTo(addrPort netip.AddrPort, packet *pkt.Packet) error {
-	destinationAddr := addrPort.Addr()
-
 	err := sendPacketTo(addrPort, packet)
 	if err != nil {
 		return err
 	}
 
-	outgoingSequencing.AddOpenAck(destinationAddr, packet.Header.PktNum, func() {
+	outgoingSequencing.AddOpenAck(packet, func() {
 		_ = sendPacketTo(addrPort, packet)
 	})
 

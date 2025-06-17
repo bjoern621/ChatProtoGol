@@ -5,6 +5,7 @@ package reconstruction
 
 import (
 	"encoding/binary"
+	"errors"
 	"net/netip"
 	"slices"
 
@@ -34,10 +35,7 @@ func (r *PktSequenceReconstructor) clearPayloadBuffer(addr netip.Addr) {
 }
 
 // HandleIncomingMsgPacket processes an incoming message packet.
-// It checks if the packet is the last in a sequence and whether all parts of the message have been received.
-// If the message is complete, it returns the complete message and a flag indicating readiness.
-// The local buffer is cleared after returning the complete message, so the returned message should be copied if needed later.
-func (r *PktSequenceReconstructor) HandleIncomingMsgPacket(packet *pkt.Packet, sourceAddr netip.Addr) (completeMsg []byte, isReady bool) {
+func (r *PktSequenceReconstructor) HandleIncomingMsgPacket(packet *pkt.Packet, sourceAddr netip.Addr) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -49,20 +47,21 @@ func (r *PktSequenceReconstructor) HandleIncomingMsgPacket(packet *pkt.Packet, s
 	}
 
 	r.payloadBuffer[sourceAddr].payloads[packet.Header.PktNum] = packet.Payload
+}
 
-	if packet.IsLast() {
-		r.payloadBuffer[sourceAddr].lastBit.received = true
-	}
+// FinishPacketSequence completes the current packet sequence for a specific source address.
+// The local buffer is cleared after returning the complete message, so the returned message should be copied if needed later.
+func (r *PktSequenceReconstructor) FinishPacketSequence(addr netip.Addr) (completeMsg []byte, err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-	isMessageComplete := r.payloadBuffer[sourceAddr].lastBit.received && binary.BigEndian.Uint32(r.payloadBuffer[sourceAddr].lastBit.seqNum[:]) <= r.sequencing.GetHighestContiguousSeqNum(sourceAddr)
-
-	if !isMessageComplete {
-		// The message is not complete yet, we need to wait for more parts
-		return nil, false
+	_, exists := r.payloadBuffer[addr]
+	if !exists {
+		return nil, errors.New("no payload buffer for address " + addr.String())
 	}
 
 	sortedSeqNums := []uint32{}
-	for seqNum := range r.payloadBuffer[sourceAddr].payloads {
+	for seqNum := range r.payloadBuffer[addr].payloads {
 		sortedSeqNums = append(sortedSeqNums, binary.BigEndian.Uint32(seqNum[:]))
 	}
 	slices.Sort(sortedSeqNums)
@@ -70,13 +69,13 @@ func (r *PktSequenceReconstructor) HandleIncomingMsgPacket(packet *pkt.Packet, s
 	for _, seqNum := range sortedSeqNums {
 		var seqNumBytes [4]byte
 		binary.BigEndian.PutUint32(seqNumBytes[:], seqNum)
-		payload, exists := r.payloadBuffer[sourceAddr].payloads[seqNumBytes]
+		payload, exists := r.payloadBuffer[addr].payloads[seqNumBytes]
 		assert.Assert(exists, "Payload should exist for packet number %d", seqNum)
 
 		completeMsg = append(completeMsg, payload...)
 	}
 
-	r.clearPayloadBuffer(sourceAddr)
+	r.clearPayloadBuffer(addr)
 
-	return completeMsg, true
+	return completeMsg, nil
 }

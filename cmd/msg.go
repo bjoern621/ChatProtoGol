@@ -3,6 +3,7 @@ package cmd
 import (
 	"net/netip"
 	"strings"
+	"sync"
 
 	"bjoernblessin.de/chatprotogol/common"
 	"bjoernblessin.de/chatprotogol/connection"
@@ -22,18 +23,31 @@ func HandleSend(args []string) { // TODO blocking
 		return
 	}
 
+	wg := &sync.WaitGroup{}
+
 	fullMsg := strings.Join(args[1:], " ")
 	msgBytes := []byte(fullMsg)
 	bytesLen := len(msgBytes)
+
+	var lastChunkPktNum [4]byte
 
 	start := 0
 	for start < bytesLen {
 		end := min(start+common.MAX_PAYLOAD_SIZE_BYTES, bytesLen)
 
 		payload := msgBytes[start:end]
-		isLastPacket := end == bytesLen
 
-		packet := connection.BuildSequencedPacket(pkt.MsgTypeChatMessage, isLastPacket, payload, peerIP)
+		packet := connection.BuildSequencedPacket(pkt.MsgTypeChatMessage, false, payload, peerIP)
+
+		lastChunkPktNum = packet.Header.PktNum
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-outSequencing.SubscribeToReceivedAck(packet)
+			// We ignore the success of the ACK to avoid blocking the send process. The receiver might get a faulty message.
+		}()
+
 		err := connection.SendReliableRoutedPacket(packet)
 		if err != nil {
 			logger.Warnf("Failed to send message to %s: %v\n", peerIP, err)
@@ -42,4 +56,20 @@ func HandleSend(args []string) { // TODO blocking
 
 		start = end
 	}
+
+	// Send the FIN message after all chunks have been sent and acknowledged
+	go func() {
+		wg.Wait()
+
+		payload := []byte(lastChunkPktNum[:])
+		packet := connection.BuildSequencedPacket(pkt.MsgTypeFinish, false, payload, peerIP)
+
+		// TODO wait for ACK of FIN message
+
+		err := connection.SendReliableRoutedPacket(packet)
+		if err != nil {
+			logger.Warnf("Failed to send finish message to %s: %v\n", peerIP, err)
+			return
+		}
+	}()
 }

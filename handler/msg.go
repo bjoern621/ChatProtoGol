@@ -1,18 +1,16 @@
 package handler
 
 import (
-	"fmt"
 	"net/netip"
 
 	"bjoernblessin.de/chatprotogol/connection"
 	"bjoernblessin.de/chatprotogol/pkt"
-	"bjoernblessin.de/chatprotogol/reconstruction"
 	"bjoernblessin.de/chatprotogol/sequencing"
 	"bjoernblessin.de/chatprotogol/sock"
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
 
-func handleMsg(packet *pkt.Packet, socket sock.Socket, inSequencing *sequencing.IncomingPktNumHandler, reconstructor *reconstruction.PktSequenceReconstructor) {
+func handleMsg(packet *pkt.Packet, socket sock.Socket, inSequencing *sequencing.IncomingPktNumHandler) {
 	logger.Infof("MSG RECEIVED %v %d", packet.Header.SourceAddr, packet.Header.PktNum)
 
 	destAddr := netip.AddrFrom4(packet.Header.DestAddr)
@@ -38,11 +36,4 @@ func handleMsg(packet *pkt.Packet, socket sock.Socket, inSequencing *sequencing.
 	srcAddr := netip.AddrFrom4(packet.Header.SourceAddr)
 
 	_ = connection.SendRoutedAcknowledgment(srcAddr, packet.Header.PktNum)
-
-	completeMsg, isReady := reconstructor.HandleIncomingMsgPacket(packet, srcAddr)
-	if !isReady {
-		return
-	}
-
-	fmt.Printf("MSG %v: %s\n", srcAddr, completeMsg)
 }

@@ -316,6 +316,8 @@ func TestBuildRoutingTable(t *testing.T) {
 		},
 		{
 			// This case happens when we connect to someone and they send their LSA before we could built our local LSA.
+			// This is essentially an error case (we should receive the ACK for our CONN before any LSA).
+			// Probably even better to assert that and handle it gracefully before we build the routing table.
 			//                                   ✅              ❌
 			name: "Only LSA of neighbor", // (10.0.0.2) <->  (10.0.0.1)
 			lsdb: map[netip.Addr]LSAEntry{

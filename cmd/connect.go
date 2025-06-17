@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"bjoernblessin.de/chatprotogol/connection"
-	"bjoernblessin.de/chatprotogol/handler"
 	"bjoernblessin.de/chatprotogol/pkt"
 	"bjoernblessin.de/chatprotogol/sock"
 	"bjoernblessin.de/chatprotogol/util/assert"
@@ -65,9 +64,11 @@ func connect(ipv4String string, portString string) {
 	packet := connection.BuildSequencedPacket(pkt.MsgTypeConnect, true, nil, addr)
 
 	go func() {
-		for range handler.SubscribeToReceivedAck(packet) {
+		success := <-outSequencing.SubscribeToReceivedAck(packet)
+		if success {
 			handleConnectAck(addrPort, socket)
-			break
+		} else {
+			logger.Warnf("Acknowledgment for connection request to %s:%d was not received", addr, port)
 		}
 	}()
 
