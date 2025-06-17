@@ -314,6 +314,23 @@ func TestBuildRoutingTable(t *testing.T) {
 				netip.MustParseAddr("10.0.0.6"),
 			},
 		},
+		{
+			// This case happens when we connect to someone and they send their LSA before we could built our local LSA.
+			//                                   ✅              ❌
+			name: "Only LSA of neighbor", // (10.0.0.2) <->  (10.0.0.1)
+			lsdb: map[netip.Addr]LSAEntry{
+				netip.MustParseAddr("10.0.0.2"): {
+					Neighbors: []netip.Addr{
+						netip.MustParseAddr(LOCAL_ADDR),
+					},
+				},
+			},
+			neighborTable: map[netip.Addr]NeighborEntry{},
+			expected:      map[netip.Addr]netip.AddrPort{},
+			expectedUnreachable: []netip.Addr{
+				netip.MustParseAddr("10.0.0.2"),
+			},
+		},
 	}
 
 	for _, tt := range tests {

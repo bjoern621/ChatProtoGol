@@ -133,8 +133,7 @@ func (pq *dijkstraPriorityQueue) update(node *DijkstraNode, newDist int, nextHop
 func (r *Router) buildRoutingTable() (unreachableAddrs []netip.Addr) {
 	assert.Assert(len(r.lsdb) > 0, "LSDB must not be empty to build the routing table")
 
-	queue := make(dijkstraPriorityQueue, len(r.lsdb)-1)
-	i := 0
+	queue := make(dijkstraPriorityQueue, 0, len(r.lsdb)) // Can't be len(r.lsdb-1) because we might not have our local LSA yet but just received a new neighbor's LSA.
 	localAddr := r.socket.MustGetLocalAddress().Addr()
 	for addr := range r.lsdb {
 		if addr == localAddr {
@@ -152,12 +151,11 @@ func (r *Router) buildRoutingTable() (unreachableAddrs []netip.Addr) {
 			dist = math.MaxInt // Non-neighbors are initially unreachable
 		}
 
-		queue[i] = &DijkstraNode{
+		queue = append(queue, &DijkstraNode{
 			Addr:    addr,
 			NextHop: nextHop,
 			Dist:    dist,
-		}
-		i++
+		})
 	}
 
 	// Add neighbors we don't have in the LSDB yet. This is useful when a new neighbor connects and we want to ensure it is reachable.
