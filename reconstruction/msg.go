@@ -26,6 +26,10 @@ func (r *PktSequenceReconstructor) ClearPayloadBuffer(addr netip.Addr) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	r.clearPayloadBuffer(addr)
+}
+
+func (r *PktSequenceReconstructor) clearPayloadBuffer(addr netip.Addr) {
 	delete(r.payloadBuffer, addr)
 }
 
@@ -72,7 +76,7 @@ func (r *PktSequenceReconstructor) HandleIncomingMsgPacket(packet *pkt.Packet, s
 		completeMsg = append(completeMsg, payload...)
 	}
 
-	r.ClearPayloadBuffer(sourceAddr)
+	r.clearPayloadBuffer(sourceAddr)
 
 	return completeMsg, true
 }
