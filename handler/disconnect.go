@@ -16,6 +16,7 @@ import (
 func handleDisconnect(packet *pkt.Packet, inSequencing *sequencing.IncomingPktNumHandler, router *routing.Router, socket sock.Socket) {
 	duplicate, dupErr := inSequencing.IsDuplicatePacket(packet)
 	if dupErr != nil {
+		logger.Warnf(dupErr.Error())
 		return
 	} else if duplicate {
 		_ = connection.SendRoutedAcknowledgment(netip.AddrFrom4(packet.Header.SourceAddr), packet.Header.PktNum)

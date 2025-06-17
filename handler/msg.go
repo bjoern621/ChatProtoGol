@@ -28,6 +28,7 @@ func handleMsg(packet *pkt.Packet, socket sock.Socket, inSequencing *sequencing.
 
 	duplicate, dupErr := inSequencing.IsDuplicatePacket(packet)
 	if dupErr != nil {
+		logger.Warnf(dupErr.Error())
 		return
 	} else if duplicate {
 		_ = connection.SendRoutedAcknowledgment(netip.AddrFrom4(packet.Header.SourceAddr), packet.Header.PktNum)

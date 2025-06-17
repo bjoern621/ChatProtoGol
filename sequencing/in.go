@@ -44,9 +44,12 @@ func (h *IncomingPktNumHandler) ClearIncomingPacketNumbers(peerAddr netip.Addr) 
 // It uses the packet number from the packet header to determine if it has already been received.
 // This means it should only be used on packets with an UNIQUE packet number (i.e., packets that have DestAddr == socket.GetLocalAddress() and have message types that provide packet numbers).
 // Returns true if the packet is a duplicate (already received), false otherwise.
-// Errors if the packet number is too far ahead (more than common.RECEIVE_BUFFER_SIZE).
+// Errors if the packet number is too far ahead (more than common.RECEIVE_BUFFER_SIZE)
+// or if the packet is not destined for us (i.e., the source address does not match the local address).
 func (h *IncomingPktNumHandler) IsDuplicatePacket(packet *pkt.Packet) (bool, error) {
-	assert.Assert(netip.AddrFrom4(packet.Header.DestAddr) == h.socket.MustGetLocalAddress().Addr(), "isDuplicatePacket should only be called for packets destined for us")
+	if netip.AddrFrom4(packet.Header.DestAddr) != h.socket.MustGetLocalAddress().Addr() {
+		return false, errors.New("packet is not destined for us, cannot check for duplicates. header destAddr: " + netip.AddrFrom4(packet.Header.DestAddr).String())
+	}
 
 	h.seqMu.Lock()
 	defer h.seqMu.Unlock()

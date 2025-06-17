@@ -16,6 +16,7 @@ import (
 func handleDatabaseDescription(packet *pkt.Packet, router *routing.Router, inSequencing *sequencing.IncomingPktNumHandler) {
 	duplicate, dupErr := inSequencing.IsDuplicatePacket(packet)
 	if dupErr != nil {
+		logger.Warnf(dupErr.Error())
 		return
 	} else if duplicate {
 		_ = connection.SendRoutedAcknowledgment(netip.AddrFrom4(packet.Header.SourceAddr), packet.Header.PktNum)
