@@ -53,8 +53,8 @@ const (
 	MsgTypeLSA            = 0x3
 	MsgTypeChatMessage    = 0x4
 	MsgTypeFileTransfer   = 0x5
-	MsgTypeAcknowledgment = 0x7
-	MsgTypeFinish         = 0x8
+	MsgTypeAcknowledgment = 0x6
+	MsgTypeFinish         = 0x7
 )
 
 func ParsePacket(data []byte) (*Packet, error) {
