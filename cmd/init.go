@@ -28,6 +28,9 @@ func HandleInit(args []string) {
 		return
 	}
 
+	disconnectAll() // Clear any existing connections before initializing a new one
+	router.RemoveLSA(socket.MustGetLocalAddress().Addr())
+
 	socket.Close()
 
 	localAddr, err := socket.Open(ipv4)

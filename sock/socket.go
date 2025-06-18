@@ -32,7 +32,7 @@ type Socket interface {
 	Open(ipv4addr net.IP) (*net.UDPAddr, error)
 
 	// Close closes the UDP socket if it's open.
-	// Observers are not cleared, they will receive packets from future sockets.
+	// Packet observers are not cleared, they will receive packets from future sockets.
 	Close() error
 
 	// Subscribe registers an observer to receive packets from the UDP socket.

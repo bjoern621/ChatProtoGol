@@ -7,6 +7,10 @@ import (
 func HandleExit(args []string) {
 	println("Exiting...")
 
+	disconnectAll()
+}
+
+func disconnectAll() {
 	for addr := range router.GetNeighbors() {
 		doneChan, err := disconnectFrom(addr)
 		if err != nil {
