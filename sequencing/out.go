@@ -43,7 +43,10 @@ func (h *OutgoingPktNumHandler) ClearPacketNumbers(addr netip.Addr) {
 
 	if acks, exists := h.openAcks[addr]; exists {
 		for seqNum, ack := range acks {
-			ack.timer.Stop()
+			// ack.timer == nil is an undesired state that shouldn't be possible at best, but it may happen if we called SubscribeToReceivedAck() but never AddOpenAck()
+			if ack.timer != nil {
+				ack.timer.Stop()
+			}
 			if ack.observable != nil {
 				ack.observable.NotifyObservers(false) // Notify observers that the connection is closed
 			}
@@ -146,7 +149,10 @@ func (h *OutgoingPktNumHandler) RemoveOpenAck(addr netip.Addr, pktNum [4]byte) {
 		return
 	}
 
-	openAck.timer.Stop()
+	// ack.timer == nil is an undesired state that shouldn't be possible at best, but it may happen if we called SubscribeToReceivedAck() but never AddOpenAck()
+	if openAck.timer != nil {
+		openAck.timer.Stop()
+	}
 	if openAck.observable != nil {
 		openAck.observable.NotifyObservers(true) // Notify observers that the ACK was received
 	}
