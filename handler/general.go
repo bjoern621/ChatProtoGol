@@ -74,7 +74,7 @@ func (ph *PacketHandler) processPacket(udpPacket *sock.Packet) {
 	case pkt.MsgTypeAcknowledgment:
 		handleAck(packet, ph.socket, ph.outSequencing)
 	case pkt.MsgTypeChatMessage:
-		handleMsg(packet, ph.socket, ph.inSequencing)
+		handleMsg(packet, ph.socket, ph.inSequencing, ph.reconstructor)
 	case pkt.MsgTypeDD:
 		handleDatabaseDescription(packet, ph.router, ph.inSequencing)
 	case pkt.MsgTypeLSA:

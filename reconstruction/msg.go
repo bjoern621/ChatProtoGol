@@ -35,6 +35,8 @@ func (r *PktSequenceReconstructor) clearPayloadBuffer(addr netip.Addr) {
 }
 
 // HandleIncomingMsgPacket processes an incoming message packet.
+// It stores the payload in the reconstruction buffer.
+// The buffer can be read later using FinishPacketSequence.
 func (r *PktSequenceReconstructor) HandleIncomingMsgPacket(packet *pkt.Packet, sourceAddr netip.Addr) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
