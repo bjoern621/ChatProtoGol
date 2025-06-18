@@ -10,10 +10,11 @@ import (
 	"bjoernblessin.de/chatprotogol/pkt"
 	"bjoernblessin.de/chatprotogol/routing"
 	"bjoernblessin.de/chatprotogol/sequencing"
+	"bjoernblessin.de/chatprotogol/sock"
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
 
-func handleDatabaseDescription(packet *pkt.Packet, router *routing.Router, inSequencing *sequencing.IncomingPktNumHandler) {
+func handleDatabaseDescription(packet *pkt.Packet, router *routing.Router, inSequencing *sequencing.IncomingPktNumHandler, srcAddrPort netip.AddrPort, socket sock.Socket) {
 	duplicate, dupErr := inSequencing.IsDuplicatePacket(packet)
 	if dupErr != nil {
 		logger.Warnf(dupErr.Error())
@@ -25,15 +26,28 @@ func handleDatabaseDescription(packet *pkt.Packet, router *routing.Router, inSeq
 
 	logger.Infof("DD RECEIVED %v %d", packet.Header.SourceAddr, packet.Header.PktNum)
 
-	sourceAddr := netip.AddrFrom4(packet.Header.SourceAddr)
+	srcAddr := netip.AddrFrom4(packet.Header.SourceAddr)
+	if srcAddr != srcAddrPort.Addr() {
+		logger.Warnf("Malformed DD packet: source address %v does not match sender %v", srcAddr, srcAddrPort)
+		return
+	}
 
-	_ = connection.SendRoutedAcknowledgment(sourceAddr, packet.Header.PktNum)
+	destAddr := netip.AddrFrom4(packet.Header.DestAddr)
+	localAddr := socket.MustGetLocalAddress().Addr()
+	if destAddr != localAddr {
+		logger.Warnf("Malformed DD packet: destination address %v does not match local address %v", destAddr, localAddr)
+		return
+	}
 
 	existingAddresses, err := parseDatabaseDescriptionPayload(packet.Payload)
 	if err != nil {
 		logger.Warnf("Failed to parse DD payload: %v", err)
 		return
 	}
+
+	// Valid packet
+
+	_ = connection.SendAcknowledgmentTo(srcAddrPort, packet.Header.PktNum)
 
 	missing := getMissingLSAs(existingAddresses, router)
 

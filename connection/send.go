@@ -53,11 +53,6 @@ func SendReliableRoutedPacket(packet *pkt.Packet) error {
 		return errors.New("no next hop found for the destination address")
 	}
 
-	err := sendPacketTo(nextHop, packet)
-	if err != nil {
-		return err
-	}
-
 	outgoingSequencing.AddOpenAck(packet, func() {
 		nextHop, found := router.GetNextHop(destinationIP) // Get the current next hop again (it may have changed)
 		if !found {
@@ -67,6 +62,11 @@ func SendReliableRoutedPacket(packet *pkt.Packet) error {
 
 		_ = sendPacketTo(nextHop, packet)
 	})
+
+	err := sendPacketTo(nextHop, packet)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -126,15 +126,21 @@ func buildPacket(msgType byte, lastBit bool, payload pkt.Payload, destAddr netip
 
 // SendRoutedAcknowledgment sends an acknowledgment packet to the specified peer address.
 // Routed: Uses the routing table to determine the next hop.
-func SendRoutedAcknowledgment(peerAddr netip.Addr, pktNum [4]byte) error {
-	ackPacket := buildPacket(pkt.MsgTypeAcknowledgment, true, nil, peerAddr, pktNum)
-
-	nextHop, found := router.GetNextHop(peerAddr)
+func SendRoutedAcknowledgment(addr netip.Addr, pktNum [4]byte) error {
+	nextHop, found := router.GetNextHop(addr)
 	if !found {
 		return errors.New("no next hop found for the peer address (is the peer disconnected?)")
 	}
 
-	err := sendPacketTo(nextHop, ackPacket)
+	return SendAcknowledgmentTo(nextHop, pktNum)
+}
+
+// SendAcknowledgmentTo sends an acknowledgment packet to the specified address and port.
+// To: Send the packet to a specific address and port.
+func SendAcknowledgmentTo(addrPort netip.AddrPort, pktNum [4]byte) error {
+	ackPacket := buildPacket(pkt.MsgTypeAcknowledgment, true, nil, addrPort.Addr(), pktNum)
+
+	err := sendPacketTo(addrPort, ackPacket)
 	if err != nil {
 		return err
 	}

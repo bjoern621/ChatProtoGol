@@ -68,7 +68,7 @@ func (ph *PacketHandler) processPacket(udpPacket *sock.Packet) {
 
 	switch packet.GetMessageType() {
 	case pkt.MsgTypeConnect:
-		handleConnect(packet, udpPacket.Addr, ph.router, ph.inSequencing, ph.socket)
+		handleConnect(packet, udpPacket.Addr.AddrPort(), ph.router, ph.inSequencing, ph.socket)
 	case pkt.MsgTypeDisconnect:
 		handleDisconnect(packet, ph.inSequencing, ph.router, ph.socket)
 	case pkt.MsgTypeAcknowledgment:
@@ -76,9 +76,9 @@ func (ph *PacketHandler) processPacket(udpPacket *sock.Packet) {
 	case pkt.MsgTypeChatMessage:
 		handleMsg(packet, ph.socket, ph.inSequencing, ph.reconstructor)
 	case pkt.MsgTypeDD:
-		handleDatabaseDescription(packet, ph.router, ph.inSequencing)
+		handleDatabaseDescription(packet, ph.router, ph.inSequencing, udpPacket.Addr.AddrPort(), ph.socket)
 	case pkt.MsgTypeLSA:
-		handleLSA(packet, ph.router, ph.inSequencing)
+		handleLSA(packet, ph.router, ph.inSequencing, udpPacket.Addr.AddrPort(), ph.socket)
 	case pkt.MsgTypeFinish:
 		handleFinish(packet, ph.inSequencing, ph.reconstructor)
 	default:

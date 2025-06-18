@@ -9,10 +9,11 @@ import (
 	"bjoernblessin.de/chatprotogol/pkt"
 	"bjoernblessin.de/chatprotogol/routing"
 	"bjoernblessin.de/chatprotogol/sequencing"
+	"bjoernblessin.de/chatprotogol/sock"
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
 
-func handleLSA(packet *pkt.Packet, router *routing.Router, inSequencing *sequencing.IncomingPktNumHandler) {
+func handleLSA(packet *pkt.Packet, router *routing.Router, inSequencing *sequencing.IncomingPktNumHandler, srcAddrPort netip.AddrPort, socket sock.Socket) {
 	duplicate, dupErr := inSequencing.IsDuplicatePacket(packet)
 	if dupErr != nil {
 		logger.Warnf(dupErr.Error())
@@ -24,9 +25,18 @@ func handleLSA(packet *pkt.Packet, router *routing.Router, inSequencing *sequenc
 
 	logger.Infof("LSA RECEIVED %v %d", packet.Header.SourceAddr, packet.Header.PktNum)
 
-	sourceAddr := netip.AddrFrom4(packet.Header.SourceAddr)
+	srcAddr := netip.AddrFrom4(packet.Header.SourceAddr)
+	if srcAddr != srcAddrPort.Addr() {
+		logger.Warnf("Malformed LSA packet: source address %v does not match sender %v", srcAddr, srcAddrPort)
+		return
+	}
 
-	_ = connection.SendRoutedAcknowledgment(sourceAddr, packet.Header.PktNum)
+	destAddr := netip.AddrFrom4(packet.Header.DestAddr)
+	localAddr := socket.MustGetLocalAddress().Addr()
+	if destAddr != localAddr {
+		logger.Warnf("Malformed LSA packet: destination address %v does not match local address %v", destAddr, localAddr)
+		return
+	}
 
 	lsaOwnerAddr, seqNum, neighborAddresses, err := parseLSAPayload(packet.Payload)
 	if err != nil {
@@ -34,11 +44,15 @@ func handleLSA(packet *pkt.Packet, router *routing.Router, inSequencing *sequenc
 		return
 	}
 
+	// Valid packet
+
+	_ = connection.SendAcknowledgmentTo(srcAddrPort, packet.Header.PktNum)
+
 	logger.Infof("LSA of %v with seqnum %d, neighbors: %v", lsaOwnerAddr, seqNum, neighborAddresses)
 
 	existingLSA, exists := router.GetLSA(lsaOwnerAddr)
 	if exists && existingLSA.SeqNum >= seqNum {
-		logger.Infof("Received LSA of %v(seqnum: %v) from %v(pkt num: %v), but already have seqnum %d", lsaOwnerAddr, seqNum, sourceAddr, packet.Header.PktNum, existingLSA.SeqNum)
+		logger.Infof("Received LSA of %v(seqnum: %v) from %v(pkt num: %v), but already have seqnum %d", lsaOwnerAddr, seqNum, srcAddr, packet.Header.PktNum, existingLSA.SeqNum)
 		return
 	}
 
@@ -51,7 +65,7 @@ func handleLSA(packet *pkt.Packet, router *routing.Router, inSequencing *sequenc
 		return
 	}
 
-	connection.FloodLSA(lsaOwnerAddr, updatedLSA, sourceAddr)
+	connection.FloodLSA(lsaOwnerAddr, updatedLSA, srcAddr)
 }
 
 func parseLSAPayload(payload pkt.Payload) (srcAddr netip.Addr, seqNum uint32, neighborAddresses []netip.Addr, err error) {

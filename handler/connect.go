@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"net"
 	"net/netip"
 
 	"bjoernblessin.de/chatprotogol/connection"
@@ -14,7 +13,7 @@ import (
 )
 
 // handleConnect processes a connection request from a peer.
-func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr, router *routing.Router, inSequencing *sequencing.IncomingPktNumHandler, socket sock.Socket) {
+func handleConnect(packet *pkt.Packet, srcAddrPort netip.AddrPort, router *routing.Router, inSequencing *sequencing.IncomingPktNumHandler, socket sock.Socket) {
 	duplicate, dupErr := inSequencing.IsDuplicatePacket(packet)
 	if dupErr != nil {
 		logger.Warnf(dupErr.Error())
@@ -26,17 +25,31 @@ func handleConnect(packet *pkt.Packet, sourceAddr *net.UDPAddr, router *routing.
 
 	logger.Infof("CONN FROM %v %v", packet.Header.SourceAddr, packet.Header.PktNum)
 
-	router.AddNeighbor(sourceAddr.AddrPort())
+	srcAddr := netip.AddrFrom4(packet.Header.SourceAddr)
+	if srcAddr != srcAddrPort.Addr() {
+		logger.Warnf("Malformed CON packet: source address %v does not match sender %v", srcAddr, srcAddrPort)
+		return
+	}
 
-	_ = connection.SendRoutedAcknowledgment(sourceAddr.AddrPort().Addr(), packet.Header.PktNum)
-
+	destAddr := netip.AddrFrom4(packet.Header.DestAddr)
 	localAddr := socket.MustGetLocalAddress().Addr()
+	if destAddr != localAddr {
+		logger.Warnf("Malformed CON packet: destination address %v does not match local address %v", destAddr, localAddr)
+		return
+	}
+
+	// Valid packet
+
+	router.AddNeighbor(srcAddrPort)
+
+	_ = connection.SendAcknowledgmentTo(srcAddrPort, packet.Header.PktNum)
+
 	localLSA, exists := router.GetLSA(localAddr)
 	assert.Assert(exists, "Local LSA should exist for the local address")
 	connection.FloodLSA(localAddr, localLSA)
 
-	err := connection.SendDD(sourceAddr.AddrPort().Addr())
+	err := connection.SendDD(srcAddr)
 	if err != nil {
-		logger.Warnf("Failed to send database description to %s: %v", sourceAddr.AddrPort(), err)
+		logger.Warnf("Failed to send database description to %s: %v", srcAddrPort, err)
 	}
 }
