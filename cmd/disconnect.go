@@ -21,35 +21,53 @@ func HandleDisconnect(args []string) {
 		return
 	}
 
+	doneChan, err := disconnectFrom(addr)
+	if err != nil {
+		fmt.Printf("Error disconnecting from %s: %v\n", addr, err)
+		return
+	}
+
+	success := <-doneChan
+	fmt.Printf("Disconnected from %s\n", addr)
+
+	if !success {
+		fmt.Printf("No ACK received from  %s\n", addr)
+		fmt.Printf("Disconnected from %s anyway, but the other side might not be aware of it.\n", addr)
+	}
+}
+
+// disconnectFrom sends a disconnect message to the specified address and handles the complete disconnect.
+// It returns a channel that will receive either true or false once, indicating whether the disconnect was successful.
+// After disconnectFrom the address might be still reachable through other connections, but the direct connection is closed.
+// Will close the connection even if the ACK is not received, but will signal failure (false) if the ACK is not received.
+func disconnectFrom(addr netip.Addr) (<-chan bool, error) {
+	doneChan := make(chan bool, 1)
+
 	isNeighbor, _ := router.IsNeighbor(addr)
 	if !isNeighbor {
-		fmt.Printf("Not connected to %s\n", addr)
-		return
+		return nil, fmt.Errorf("not connected to %s", addr)
 	}
 
 	packet := connection.BuildSequencedPacket(pkt.MsgTypeDisconnect, true, nil, addr)
 
 	go func() {
 		success := <-outSequencing.SubscribeToReceivedAck(packet)
-		if !success {
-			fmt.Printf("Failed to disconnect from %s: No ACK received\n", addr)
-			fmt.Printf("Disconnecting from %s anyway...\n", addr)
-		}
 
 		unreachableHosts := router.RemoveNeighbor(addr)
 		connection.ClearUnreachableHosts(unreachableHosts)
 
 		localAddr := socket.MustGetLocalAddress().Addr()
 		localLSA, exists := router.GetLSA(localAddr)
-		assert.Assert(exists, "Local LSA should exist for the local address")
+		assert.Assert(exists, "LSA should exist for the local address")
 		connection.FloodLSA(localAddr, localLSA)
 
-		fmt.Printf("Disconnected from %s\n", addr)
+		doneChan <- success
 	}()
 
-	err = connection.SendReliableRoutedPacket(packet)
+	err := connection.SendReliableRoutedPacket(packet)
 	if err != nil {
-		fmt.Printf("Failed to send disconnect message: %v\n", err)
-		return
+		return nil, err
 	}
+
+	return doneChan, nil
 }
