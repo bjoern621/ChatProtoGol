@@ -14,10 +14,6 @@ import (
 )
 
 type buffer struct {
-	lastBit struct {
-		received bool    // Whether the last bit of the packet sequence has been received
-		seqNum   [4]byte // The sequence number of the packet that had the last bit set
-	}
 	payloads map[[4]byte]pkt.Payload // Maps sequence numbers to payloads
 }
 
