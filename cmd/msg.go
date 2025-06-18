@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"net/netip"
 	"strings"
 	"sync"
@@ -8,10 +9,11 @@ import (
 	"bjoernblessin.de/chatprotogol/common"
 	"bjoernblessin.de/chatprotogol/connection"
 	"bjoernblessin.de/chatprotogol/pkt"
+	"bjoernblessin.de/chatprotogol/sequencing"
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
 
-func HandleSend(args []string) { // TODO blocking
+func HandleSend(args []string) {
 	if len(args) < 2 {
 		println("Usage: msg <IPv4 address> <message>")
 		return
@@ -20,6 +22,13 @@ func HandleSend(args []string) { // TODO blocking
 	peerIP, err := netip.ParseAddr(args[0])
 	if err != nil || !peerIP.Is4() {
 		println("Invalid IPv4 address:", args[0])
+		return
+	}
+
+	blocker := sequencing.GetSequenceBlocker(peerIP, pkt.MsgTypeChatMessage)
+	success := blocker.Block()
+	if !success {
+		fmt.Printf("Can't send message to %s: Another message is currently being sent.\n", peerIP)
 		return
 	}
 
@@ -51,7 +60,7 @@ func HandleSend(args []string) { // TODO blocking
 		err := connection.SendReliableRoutedPacket(packet)
 		if err != nil {
 			logger.Warnf("Failed to send message to %s: %v\n", peerIP, err)
-			return
+			// Don't return, send the remaining chunks anyway.
 		}
 
 		start = end
@@ -64,7 +73,11 @@ func HandleSend(args []string) { // TODO blocking
 		payload := []byte(lastChunkPktNum[:])
 		packet := connection.BuildSequencedPacket(pkt.MsgTypeFinish, false, payload, peerIP)
 
-		// TODO wait for ACK of FIN message
+		go func() {
+			<-outSequencing.SubscribeToReceivedAck(packet)
+			// We ignore the success of the ACK to avoid blocking the send process. The receiver might not be ready for a new message but we don't care.
+			blocker.Unblock()
+		}()
 
 		err := connection.SendReliableRoutedPacket(packet)
 		if err != nil {
