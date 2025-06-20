@@ -6,9 +6,9 @@ import (
 	"net"
 
 	"bjoernblessin.de/chatprotogol/cmd"
+	"bjoernblessin.de/chatprotogol/cmd/inputreader"
 	"bjoernblessin.de/chatprotogol/connection"
 	"bjoernblessin.de/chatprotogol/handler"
-	"bjoernblessin.de/chatprotogol/inputreader"
 	"bjoernblessin.de/chatprotogol/routing"
 	"bjoernblessin.de/chatprotogol/sequencing"
 	"bjoernblessin.de/chatprotogol/sequencing/reconstruction"
