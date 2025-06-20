@@ -92,7 +92,7 @@ func handleConnectAck(addrPort netip.AddrPort, socket sock.Socket) {
 	assert.Assert(exists, "Local LSA should exist for the local address")
 	connection.FloodLSA(localAddr, localLSA)
 
-	err := connection.SendDD(addrPort.Addr())
+	err := connection.SendDD(addrPort)
 	if err != nil {
 		logger.Warnf("Failed to send database description to %s: %v", addrPort, err)
 	}

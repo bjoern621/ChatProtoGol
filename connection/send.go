@@ -165,22 +165,22 @@ func FloodLSA(lsaOwner netip.Addr, lsa routing.LSAEntry, exceptAddrs ...netip.Ad
 		payload = append(payload, addrBytes[:]...)
 	}
 
-	for destinationAddr := range router.GetNeighbors() {
-		if slices.Contains(exceptAddrs, destinationAddr) {
+	for destAddr, destAddrPort := range router.GetNeighbors() {
+		if slices.Contains(exceptAddrs, destAddr) {
 			continue
 		}
 
-		packet := BuildSequencedPacket(pkt.MsgTypeLSA, true, payload, destinationAddr)
+		packet := BuildSequencedPacket(pkt.MsgTypeLSA, true, payload, destAddr)
 
-		err := SendReliableRoutedPacket(packet)
+		err := SendReliablePacketTo(destAddrPort, packet)
 		if err != nil {
-			logger.Warnf("Failed to send LSA for %s: %v", destinationAddr, err)
+			logger.Warnf("Failed to send LSA for %s: %v", destAddr, err)
 		}
 	}
 }
 
 // SendDD sends a Database Description representing our LSDB to the destination address.
-func SendDD(destAddr netip.Addr) error {
+func SendDD(destAddrPort netip.AddrPort) error {
 	existingLSAs := router.GetAvailableLSAs()
 	payload := make(pkt.Payload, 0, len(existingLSAs))
 	for _, addr := range existingLSAs {
@@ -188,9 +188,9 @@ func SendDD(destAddr netip.Addr) error {
 		payload = append(payload, addrBytes[:]...)
 	}
 
-	packet := BuildSequencedPacket(pkt.MsgTypeDD, true, payload, destAddr)
+	packet := BuildSequencedPacket(pkt.MsgTypeDD, true, payload, destAddrPort.Addr())
 
-	return SendReliableRoutedPacket(packet)
+	return SendReliablePacketTo(destAddrPort, packet)
 }
 
 // ForwardRouted forwards a packet to the destination address defined in the packet header.

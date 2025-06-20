@@ -53,7 +53,7 @@ func handleConnect(packet *pkt.Packet, srcAddrPort netip.AddrPort, router *routi
 	assert.Assert(exists, "Local LSA should exist for the local address")
 	connection.FloodLSA(localAddr, localLSA)
 
-	err := connection.SendDD(srcAddr)
+	err := connection.SendDD(srcAddrPort)
 	if err != nil {
 		logger.Warnf("Failed to send database description to %s: %v", srcAddrPort, err)
 	}
