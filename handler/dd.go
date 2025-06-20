@@ -20,7 +20,7 @@ func handleDatabaseDescription(packet *pkt.Packet, router *routing.Router, inSeq
 		logger.Warnf(dupErr.Error())
 		return
 	} else if duplicate {
-		_ = connection.SendRoutedAcknowledgment(netip.AddrFrom4(packet.Header.SourceAddr), packet.Header.PktNum)
+		_ = connection.SendAcknowledgmentTo(srcAddrPort, packet.Header.PktNum)
 		return
 	}
 

@@ -14,18 +14,18 @@ import (
 
 // handleDisconnect processes a disconnect request from a peer.
 func handleDisconnect(packet *pkt.Packet, inSequencing *sequencing.IncomingPktNumHandler, router *routing.Router, socket sock.Socket) {
+	srcAddr := netip.AddrFrom4(packet.Header.SourceAddr)
+
 	duplicate, dupErr := inSequencing.IsDuplicatePacket(packet)
 	if dupErr != nil {
 		logger.Warnf(dupErr.Error())
 		return
 	} else if duplicate {
-		_ = connection.SendRoutedAcknowledgment(netip.AddrFrom4(packet.Header.SourceAddr), packet.Header.PktNum)
+		_ = connection.SendRoutedAcknowledgment(srcAddr, packet.Header.PktNum)
 		return
 	}
 
 	logger.Infof("DISCO FROM %v %v", packet.Header.SourceAddr, packet.Header.PktNum)
-
-	srcAddr := netip.AddrFrom4(packet.Header.SourceAddr)
 
 	if isNeighbor, _ := router.IsNeighbor(srcAddr); !isNeighbor {
 		logger.Warnf("Received disconnect from non-neighbor peer %v", srcAddr)

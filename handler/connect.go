@@ -19,7 +19,7 @@ func handleConnect(packet *pkt.Packet, srcAddrPort netip.AddrPort, router *routi
 		logger.Warnf(dupErr.Error())
 		return
 	} else if duplicate {
-		_ = connection.SendRoutedAcknowledgment(netip.AddrFrom4(packet.Header.SourceAddr), packet.Header.PktNum)
+		_ = connection.SendAcknowledgmentTo(srcAddrPort, packet.Header.PktNum)
 		return
 	}
 
