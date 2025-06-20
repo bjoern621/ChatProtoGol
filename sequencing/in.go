@@ -18,15 +18,15 @@ import (
 
 type IncomingPktNumHandler struct {
 	seqMu         sync.Mutex
-	highestPktNum map[netip.Addr]uint32          // Highest contiguous seq num received per peer
-	futurePktNums map[netip.Addr]map[uint32]bool // Out-of-order seq nums > highest, bounded by common.RECEIVE_BUFFER_SIZE
+	highestPktNum map[netip.Addr]int64          // Highest contiguous seq num received per peer; int64 to allow for negative numbers
+	futurePktNums map[netip.Addr]map[int64]bool // Out-of-order seq nums > highest, bounded by common.RECEIVE_BUFFER_SIZE
 	socket        sock.Socket
 }
 
 func NewIncomingPktNumHandler(socket sock.Socket) *IncomingPktNumHandler {
 	return &IncomingPktNumHandler{
-		highestPktNum: make(map[netip.Addr]uint32),
-		futurePktNums: make(map[netip.Addr]map[uint32]bool),
+		highestPktNum: make(map[netip.Addr]int64),
+		futurePktNums: make(map[netip.Addr]map[int64]bool),
 		socket:        socket,
 	}
 }
@@ -55,20 +55,19 @@ func (h *IncomingPktNumHandler) IsDuplicatePacket(packet *pkt.Packet) (bool, err
 	defer h.seqMu.Unlock()
 
 	peerAddr := netip.AddrFrom4(packet.Header.SourceAddr)
-	seqNum := binary.BigEndian.Uint32(packet.Header.PktNum[:])
+	seqNum32 := binary.BigEndian.Uint32(packet.Header.PktNum[:])
+
+	seqNum := int64(seqNum32)
 
 	highest, hasHighest := h.highestPktNum[peerAddr]
 	if !hasHighest {
-		// highestSeqNum[peerAddr] = seqNum
-		h.highestPktNum[peerAddr] = 0 // TODO may not be correct, what if the first packet has a seqNum like 10?
-		return false, nil             // First packet from this peer
+		highest = -1
 	}
 
 	if seqNum <= highest {
-		// seqNum <= highest, so it's a duplicate
 		return true, nil
 	} else if seqNum == highest+1 {
-		h.highestPktNum[peerAddr]++
+		h.highestPktNum[peerAddr] = seqNum
 
 		// Advance highest if future packets are now contiguous
 		for {
@@ -96,8 +95,14 @@ func (h *IncomingPktNumHandler) IsDuplicatePacket(packet *pkt.Packet) (bool, err
 		}
 
 		if _, ok := h.futurePktNums[peerAddr]; !ok {
-			h.futurePktNums[peerAddr] = make(map[uint32]bool)
+			h.futurePktNums[peerAddr] = make(map[int64]bool)
 		}
+
+		if _, exists := h.futurePktNums[peerAddr][seqNum]; exists {
+			// Already stored this seq num, so it's a duplicate
+			return true, nil
+		}
+
 		h.futurePktNums[peerAddr][seqNum] = true
 
 		return false, nil
@@ -107,13 +112,13 @@ func (h *IncomingPktNumHandler) IsDuplicatePacket(packet *pkt.Packet) (bool, err
 	return true, nil
 }
 
-func (h *IncomingPktNumHandler) GetHighestContiguousSeqNum(peerAddr netip.Addr) uint32 {
+func (h *IncomingPktNumHandler) GetHighestContiguousSeqNum(peerAddr netip.Addr) int64 {
 	h.seqMu.Lock()
 	defer h.seqMu.Unlock()
 
 	highest, exists := h.highestPktNum[peerAddr]
 	if !exists {
-		return 0
+		return -1
 	}
 
 	return highest
