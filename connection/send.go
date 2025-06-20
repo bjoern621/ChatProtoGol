@@ -75,14 +75,14 @@ func SendReliableRoutedPacket(packet *pkt.Packet) error {
 // Reliable: Resends and timeouts are handled.
 // To: Send the packet to a specific address and port.
 func SendReliablePacketTo(addrPort netip.AddrPort, packet *pkt.Packet) error {
+	outgoingSequencing.AddOpenAck(packet, func() {
+		_ = sendPacketTo(addrPort, packet)
+	})
+
 	err := sendPacketTo(addrPort, packet)
 	if err != nil {
 		return err
 	}
-
-	outgoingSequencing.AddOpenAck(packet, func() {
-		_ = sendPacketTo(addrPort, packet)
-	})
 
 	return nil
 }
@@ -205,6 +205,11 @@ func ForwardRouted(packet *pkt.Packet) error {
 	if !found {
 		return errors.New("no next hop found for the destination address")
 	}
+
+	if packet.Header.TTL <= 0 {
+		return errors.New("packet TTL is already zero or less, cannot forward")
+	}
+	packet.Header.TTL--
 
 	err := sendPacketTo(nextHop, packet)
 	if err != nil {
