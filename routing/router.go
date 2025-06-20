@@ -26,6 +26,7 @@ func NewRouter(socket sock.Socket) *Router {
 
 // AddNeighbor adds a new neighbor to the router.
 // It adds the neighbor to the neighbor table, recalculates the local LSA, and builds the routing table.
+// Asserts that the neighbor does not already exist in the neighbor table.
 // Can be called concurrently.
 func (r *Router) AddNeighbor(nextHop netip.AddrPort) {
 	r.mu.Lock()
@@ -39,6 +40,7 @@ func (r *Router) AddNeighbor(nextHop netip.AddrPort) {
 // RemoveNeighbor removes a neighbor from the router.
 // It removes the neighbor from the neighbor table, recalculates the local LSA, and builds the routing table.
 // Returns a slice of unreachable addresses that could not be reached during the routing table build process.
+// Unreachable addresses are those that were previously reachable but are no longer reachable due to the removed neighbor.
 // Can be called concurrently.
 func (r *Router) RemoveNeighbor(addr netip.Addr) (unreachableAddrs []netip.Addr) {
 	r.mu.Lock()
@@ -53,6 +55,7 @@ func (r *Router) RemoveNeighbor(addr netip.Addr) (unreachableAddrs []netip.Addr)
 // UpdateLSA adds a new LSA to the router.
 // It updates the LSA in the LSDB and builds the routing table.
 // Returns a slice of unreachable addresses that could not be reached during the routing table build process.
+// Unreachable addresses are those that were previously reachable but are no longer reachable due to the updated LSA.
 // Can be called concurrently.
 func (r *Router) UpdateLSA(srcAddr netip.Addr, seqNum uint32, neighborAddresses []netip.Addr) (unreachableAddrs []netip.Addr) {
 	r.mu.Lock()

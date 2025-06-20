@@ -158,17 +158,6 @@ func (r *Router) buildRoutingTable() (unreachableAddrs []netip.Addr) {
 		})
 	}
 
-	// Add neighbors we don't have in the LSDB yet. This is useful when a new neighbor connects and we want to ensure it is reachable.
-	for neighborAddr, neighborEntry := range r.neighborTable {
-		if _, exists := r.lsdb[neighborAddr]; !exists {
-			queue = append(queue, &DijkstraNode{
-				Addr:    neighborAddr,
-				NextHop: &neighborEntry.NextHop,
-				Dist:    1, // Neighbors are reachable with a distance of 1
-			})
-		}
-	}
-
 	heap.Init(&queue)
 
 	r.routingTable = make(map[netip.Addr]netip.AddrPort, len(queue))

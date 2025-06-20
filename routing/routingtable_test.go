@@ -75,9 +75,7 @@ func TestBuildRoutingTable(t *testing.T) {
 			expectedUnreachable: nil,
 		},
 		{
-			// This test case happens when someone connects to the local host because we dont have their LSA yet.
-			// We want to be able to send messages to the remote host (e.g., ACK, DD).
-			name: "Only local LSA but with Neighbors", // (10.0.0.2) <->  (10.0.0.1) <-> (10.0.0.3)
+			name: "Only local LSA but with Neighbors", // (10.0.0.2) <-> (10.0.0.1) <-> (10.0.0.3)
 			lsdb: map[netip.Addr]LSAEntry{
 				netip.MustParseAddr(LOCAL_ADDR): {
 					Neighbors: []netip.Addr{
@@ -94,10 +92,7 @@ func TestBuildRoutingTable(t *testing.T) {
 					NextHop: netip.MustParseAddrPort("10.0.0.3:30000"),
 				},
 			},
-			expected: map[netip.Addr]netip.AddrPort{
-				netip.MustParseAddr("10.0.0.2"): netip.MustParseAddrPort("10.0.0.2:20000"),
-				netip.MustParseAddr("10.0.0.3"): netip.MustParseAddrPort("10.0.0.3:30000"),
-			},
+			expected: map[netip.Addr]netip.AddrPort{},
 		},
 		{
 			name: "Single neighbor", // (10.0.0.1) <-> (10.0.0.2)

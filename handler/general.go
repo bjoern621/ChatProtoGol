@@ -66,6 +66,8 @@ func (ph *PacketHandler) processPacket(udpPacket *sock.Packet) {
 		return
 	}
 
+	// TODO handle duplicates for packets that have destaddr == localaddress
+
 	switch packet.GetMessageType() {
 	case pkt.MsgTypeConnect:
 		handleConnect(packet, udpPacket.Addr.AddrPort(), ph.router, ph.inSequencing, ph.socket)

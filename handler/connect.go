@@ -38,11 +38,16 @@ func handleConnect(packet *pkt.Packet, srcAddrPort netip.AddrPort, router *routi
 		return
 	}
 
+	if isNeighbor, _ := router.IsNeighbor(srcAddr); isNeighbor {
+		logger.Warnf("Received connection request from already known neighbor %v", srcAddr)
+		return
+	}
+
 	// Valid packet
 
-	router.AddNeighbor(srcAddrPort)
-
 	_ = connection.SendAcknowledgmentTo(srcAddrPort, packet.Header.PktNum)
+
+	router.AddNeighbor(srcAddrPort)
 
 	localLSA, exists := router.GetLSA(localAddr)
 	assert.Assert(exists, "Local LSA should exist for the local address")
