@@ -23,6 +23,6 @@ func handleAck(packet *pkt.Packet, socket sock.Socket, outSequencing *sequencing
 
 	// The acknowledgment is for us, remove the open acknowledgment
 
-	sourceAddr := netip.AddrFrom4([4]byte(packet.Header.SourceAddr))
-	outSequencing.RemoveOpenAck(sourceAddr, packet.Header.PktNum)
+	srcAddr := netip.AddrFrom4([4]byte(packet.Header.SourceAddr))
+	outSequencing.RemoveOpenAck(srcAddr, packet.Header.PktNum)
 }

@@ -82,7 +82,7 @@ func (ph *PacketHandler) processPacket(udpPacket *sock.Packet) {
 	case pkt.MsgTypeLSA:
 		handleLSA(packet, ph.router, ph.inSequencing, udpPacket.Addr.AddrPort(), ph.socket)
 	case pkt.MsgTypeFinish:
-		handleFinish(packet, ph.inSequencing, ph.reconstructor)
+		handleFinish(packet, ph.inSequencing, ph.reconstructor, ph.socket)
 	default:
 		logger.Warnf("Unhandled packet type: %v from %v to %v", packet.GetMessageType(), packet.Header.SourceAddr, packet.Header.DestAddr)
 		return

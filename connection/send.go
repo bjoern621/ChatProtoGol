@@ -132,7 +132,14 @@ func SendRoutedAcknowledgment(addr netip.Addr, pktNum [4]byte) error {
 		return errors.New("no next hop found for the peer address (is the peer disconnected?)")
 	}
 
-	return SendAcknowledgmentTo(nextHop, pktNum)
+	ackPacket := buildPacket(pkt.MsgTypeAcknowledgment, true, nil, addr, pktNum)
+
+	err := sendPacketTo(nextHop, ackPacket)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // SendAcknowledgmentTo sends an acknowledgment packet to the specified address and port.
@@ -210,6 +217,7 @@ func ForwardRouted(packet *pkt.Packet) error {
 		return errors.New("packet TTL is already zero or less, cannot forward")
 	}
 	packet.Header.TTL--
+	pkt.SetChecksum(packet)
 
 	err := sendPacketTo(nextHop, packet)
 	if err != nil {
