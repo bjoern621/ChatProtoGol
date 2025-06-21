@@ -74,7 +74,7 @@ func (pq *dijkstraPriorityQueue) update(node *DijkstraNode, newDist int, nextHop
 // Creates the current topology of the network based on the LSAs in the LSDB.
 // Runs the Dijkstra algorithm to calculate the shortest paths and build the routing table.
 // Returns a slice of unreachable addresses that could not be reached during the routing table build process.
-func (r *Router) buildRoutingTable() (unreachableAddrs []netip.Addr) {
+func (r *Router) buildRoutingTable() (notRoutable []netip.Addr) {
 	assert.Assert(len(r.lsdb) > 0, "LSDB must not be empty to build the routing table")
 
 	queue := make(dijkstraPriorityQueue, 0, len(r.lsdb)) // Can't be len(r.lsdb-1) because we might not have our local LSA yet but just received a new neighbor's LSA.
@@ -105,14 +105,14 @@ func (r *Router) buildRoutingTable() (unreachableAddrs []netip.Addr) {
 	heap.Init(&queue)
 
 	r.routingTable = make(map[netip.Addr]netip.AddrPort, len(queue))
-	unreachableAddrs = make([]netip.Addr, 0)
+	notRoutable = make([]netip.Addr, 0)
 
 	for queue.Len() > 0 {
 		currentNode := heap.Pop(&queue).(*DijkstraNode)
 
 		if currentNode.Dist == math.MaxInt {
-			// All remaining nodes are unreachable
-			unreachableAddrs = append(unreachableAddrs, currentNode.Addr)
+			// All remaining nodes are not routable
+			notRoutable = append(notRoutable, currentNode.Addr)
 			continue
 		}
 
@@ -138,7 +138,7 @@ func (r *Router) buildRoutingTable() (unreachableAddrs []netip.Addr) {
 
 			if neighborNode == nil {
 				// If the neighbor is not in the queue, it means it's LSA is not present (yet) but it's a neighbor of another node where we have the LSA.
-				// We don't add here, the neighbor is considered unreachable for now.
+				// We don't add here, the neighbor is considered not routable for now.
 				continue
 			}
 
@@ -149,5 +149,5 @@ func (r *Router) buildRoutingTable() (unreachableAddrs []netip.Addr) {
 		}
 	}
 
-	return unreachableAddrs
+	return notRoutable
 }

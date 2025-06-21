@@ -11,35 +11,35 @@ import (
 	"bjoernblessin.de/chatprotogol/sock"
 )
 
-type MockSocket struct{}
+type mockSocket struct{}
 
 const LOCAL_ADDR = "10.0.0.1"
 const LOCAL_PORT = 1234
 
-func (m *MockSocket) GetLocalAddress() (netip.AddrPort, error) {
+func (m *mockSocket) GetLocalAddress() (netip.AddrPort, error) {
 	return m.MustGetLocalAddress(), nil
 }
 
-func (m *MockSocket) MustGetLocalAddress() netip.AddrPort {
+func (m *mockSocket) MustGetLocalAddress() netip.AddrPort {
 	return netip.MustParseAddrPort(LOCAL_ADDR + ":" + fmt.Sprint(LOCAL_PORT))
 }
 
-func (m *MockSocket) Close() error {
+func (m *mockSocket) Close() error {
 	return nil
 }
 
-func (m *MockSocket) SendTo(addr *net.UDPAddr, data []byte) error {
+func (m *mockSocket) SendTo(addr *net.UDPAddr, data []byte) error {
 	return nil
 }
 
-func (m *MockSocket) Open(ipv4addr net.IP) (*net.UDPAddr, error) {
+func (m *mockSocket) Open(ipv4addr net.IP) (*net.UDPAddr, error) {
 	return &net.UDPAddr{
 		IP:   ipv4addr,
 		Port: 0,
 	}, nil
 }
 
-func (m *MockSocket) Subscribe() chan *sock.Packet {
+func (m *mockSocket) Subscribe() chan *sock.Packet {
 	return nil
 }
 
@@ -332,7 +332,7 @@ func TestBuildRoutingTable(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			socket := &MockSocket{}
+			socket := &mockSocket{}
 			router := NewRouter(socket)
 			router.lsdb = tt.lsdb
 			router.neighborTable = tt.neighborTable

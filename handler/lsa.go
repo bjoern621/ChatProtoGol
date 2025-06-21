@@ -3,7 +3,6 @@ package handler
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"net/netip"
 
 	"bjoernblessin.de/chatprotogol/connection"
@@ -57,9 +56,8 @@ func handleLSA(packet *pkt.Packet, router *routing.Router, inSequencing *sequenc
 		return
 	}
 
-	unreachableHosts := router.UpdateLSA(lsaOwnerAddr, seqNum, neighborAddresses)
-	connection.ClearUnreachableHosts(unreachableHosts)
-	fmt.Printf("Removed unreachable hosts: %v\n", unreachableHosts)
+	notRoutableHosts := router.UpdateLSA(lsaOwnerAddr, seqNum, neighborAddresses)
+	connection.ClearUnreachableHosts(notRoutableHosts)
 
 	updatedLSA, exists := router.GetLSA(lsaOwnerAddr)
 	if !exists {

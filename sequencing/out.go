@@ -1,7 +1,6 @@
 package sequencing
 
 import (
-	"fmt"
 	"net/netip"
 	"sync"
 	"time"
@@ -147,7 +146,6 @@ func (h *OutgoingPktNumHandler) RemoveOpenAck(addr netip.Addr, pktNum [4]byte) {
 
 	openAck, exists := h.openAcks[addr][pktNum]
 	if !exists {
-		fmt.Printf("Tried to remove open acknowledgment for host %s with packet number %v, but it does not exist\n", addr, pktNum)
 		return
 	}
 
