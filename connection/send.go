@@ -12,7 +12,6 @@ import (
 	"bjoernblessin.de/chatprotogol/pkt"
 	"bjoernblessin.de/chatprotogol/routing"
 	"bjoernblessin.de/chatprotogol/sequencing"
-	"bjoernblessin.de/chatprotogol/sequencing/reconstruction"
 	"bjoernblessin.de/chatprotogol/sock"
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
@@ -21,14 +20,12 @@ var socket sock.Socket
 var router *routing.Router
 var incomingSequencing *sequencing.IncomingPktNumHandler
 var outgoingSequencing *sequencing.OutgoingPktNumHandler
-var reconstructor *reconstruction.PktSequenceReconstructor
 
-func SetGlobalVars(s sock.Socket, r *routing.Router, in *sequencing.IncomingPktNumHandler, out *sequencing.OutgoingPktNumHandler, recon *reconstruction.PktSequenceReconstructor) {
+func SetGlobalVars(s sock.Socket, r *routing.Router, in *sequencing.IncomingPktNumHandler, out *sequencing.OutgoingPktNumHandler) {
 	socket = s
 	router = r
 	incomingSequencing = in
 	outgoingSequencing = out
-	reconstructor = recon
 }
 
 var msgTypeNames = map[byte]string{

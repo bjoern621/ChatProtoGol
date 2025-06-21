@@ -3,6 +3,7 @@ package connection
 import (
 	"net/netip"
 
+	"bjoernblessin.de/chatprotogol/sequencing"
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
 
@@ -15,6 +16,6 @@ func ClearUnreachableHosts(unreachableHosts []netip.Addr) {
 		router.RemoveLSA(addr)
 		incomingSequencing.ClearIncomingPacketNumbers(addr)
 		outgoingSequencing.ClearPacketNumbers(addr)
-		reconstructor.ClearPayloadBuffer(addr)
+		sequencing.ClearBlockers(addr)
 	}
 }

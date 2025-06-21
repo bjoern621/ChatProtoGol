@@ -25,6 +25,18 @@ func GetSequenceBlocker(destAddr netip.Addr, msgType byte) *sequenceBlocker {
 	}
 }
 
+// ClearBlockers clears all blockers for the given destination address.
+func ClearBlockers(destAddr netip.Addr) {
+	blockerManager.mu.Lock()
+	defer blockerManager.mu.Unlock()
+
+	for b := range blockerManager.blocked {
+		if b.destinationAddr == destAddr {
+			delete(blockerManager.blocked, b)
+		}
+	}
+}
+
 // Block blocks tries to set the blocker to the blocked state.
 // If the blocker is already blocked, it returns false, indicating that another message of the same type is currently being sent.
 // If the blocker is not blocked, it sets the blocker to the blocked state and returns true

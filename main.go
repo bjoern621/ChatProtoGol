@@ -11,7 +11,6 @@ import (
 	"bjoernblessin.de/chatprotogol/handler"
 	"bjoernblessin.de/chatprotogol/routing"
 	"bjoernblessin.de/chatprotogol/sequencing"
-	"bjoernblessin.de/chatprotogol/sequencing/reconstruction"
 	"bjoernblessin.de/chatprotogol/sock"
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
@@ -23,8 +22,6 @@ func main() {
 
 	inSequencing := sequencing.NewIncomingPktNumHandler(udpSocket)
 	outSequencing := sequencing.NewOutgoingPktNumHandler()
-
-	pktSequenceReconstructor := reconstruction.NewPktSequenceReconstructor(inSequencing)
 
 	router := routing.NewRouter(udpSocket)
 
@@ -42,10 +39,10 @@ func main() {
 	reader.AddHandler("lsdb", cmd.HandleListDatabase)
 	reader.AddHandler("infmsg", cmd.HandleInfiniteMsg)
 
-	handler := handler.NewPacketHandler(udpSocket, router, inSequencing, outSequencing, pktSequenceReconstructor)
+	handler := handler.NewPacketHandler(udpSocket, router, inSequencing, outSequencing)
 	go handler.ListenToPackets()
 
-	connection.SetGlobalVars(udpSocket, router, inSequencing, outSequencing, pktSequenceReconstructor)
+	connection.SetGlobalVars(udpSocket, router, inSequencing, outSequencing)
 
 	localAddr, err := udpSocket.Open(net.IPv4(127, 0, 0, 1))
 	if err != nil {

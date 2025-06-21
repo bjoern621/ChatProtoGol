@@ -7,7 +7,6 @@ import (
 	"bjoernblessin.de/chatprotogol/pkt"
 	"bjoernblessin.de/chatprotogol/routing"
 	"bjoernblessin.de/chatprotogol/sequencing"
-	"bjoernblessin.de/chatprotogol/sequencing/reconstruction"
 	"bjoernblessin.de/chatprotogol/sock"
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
@@ -17,16 +16,14 @@ type PacketHandler struct {
 	router        *routing.Router
 	inSequencing  *sequencing.IncomingPktNumHandler
 	outSequencing *sequencing.OutgoingPktNumHandler
-	reconstructor *reconstruction.PktSequenceReconstructor
 }
 
-func NewPacketHandler(socket sock.Socket, router *routing.Router, inSequencing *sequencing.IncomingPktNumHandler, outSequencing *sequencing.OutgoingPktNumHandler, recon *reconstruction.PktSequenceReconstructor) *PacketHandler {
+func NewPacketHandler(socket sock.Socket, router *routing.Router, inSequencing *sequencing.IncomingPktNumHandler, outSequencing *sequencing.OutgoingPktNumHandler) *PacketHandler {
 	return &PacketHandler{
 		socket:        socket,
 		router:        router,
 		inSequencing:  inSequencing,
 		outSequencing: outSequencing,
-		reconstructor: recon,
 	}
 }
 
@@ -76,13 +73,15 @@ func (ph *PacketHandler) processPacket(udpPacket *sock.Packet) {
 	case pkt.MsgTypeAcknowledgment:
 		handleAck(packet, ph.socket, ph.outSequencing)
 	case pkt.MsgTypeChatMessage:
-		handleMsg(packet, ph.socket, ph.inSequencing, ph.reconstructor)
+		handleMsg(packet, ph.socket, ph.inSequencing)
 	case pkt.MsgTypeDD:
 		handleDatabaseDescription(packet, ph.router, ph.inSequencing, udpPacket.Addr.AddrPort(), ph.socket)
 	case pkt.MsgTypeLSA:
 		handleLSA(packet, ph.router, ph.inSequencing, udpPacket.Addr.AddrPort(), ph.socket)
 	case pkt.MsgTypeFinish:
-		handleFinish(packet, ph.inSequencing, ph.reconstructor, ph.socket)
+		handleFinish(packet, ph.inSequencing, ph.socket)
+	case pkt.MsgTypeFileTransfer:
+		handleFileTransfer(packet, ph.socket, ph.inSequencing)
 	default:
 		logger.Warnf("Unhandled packet type: %v from %v to %v", packet.GetMessageType(), packet.Header.SourceAddr, packet.Header.DestAddr)
 		return
