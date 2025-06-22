@@ -13,6 +13,8 @@ import (
 	"bjoernblessin.de/chatprotogol/util/observer"
 )
 
+const PREFERRED_PORT = 20000
+
 type Socket interface {
 	// GetLocalAddress returns the local address of the UDP socket.
 	// It errors if the socket is not initialized.
@@ -78,11 +80,17 @@ func (s *udpSocket) Open(ipv4addr net.IP) (*net.UDPAddr, error) {
 
 	socket, err := net.ListenUDP("udp4", &net.UDPAddr{
 		IP:   ipv4addr,
-		Port: 0})
+		Port: PREFERRED_PORT,
+	})
 	if err != nil {
-		return nil, err
+		socket, err = net.ListenUDP("udp4", &net.UDPAddr{
+			IP:   ipv4addr,
+			Port: 0,
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
-
 	s.udpSocket = socket
 
 	go s.readLoop()
