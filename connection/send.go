@@ -108,6 +108,7 @@ func BuildSequencedPacket(msgType byte, lastBit bool, payload pkt.Payload, destA
 	copy(payloadCopy, payload)
 	return buildPacket(msgType, lastBit, payloadCopy, destAddr, outgoingSequencing.GetNextpacketNumber(destAddr))
 }
+
 func buildPacket(msgType byte, lastBit bool, payload pkt.Payload, destAddr netip.Addr, pktNum [4]byte) *pkt.Packet {
 	packet := &pkt.Packet{
 		Header: pkt.Header{
