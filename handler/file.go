@@ -33,7 +33,7 @@ func handleFileTransfer(packet *pkt.Packet, socket sock.Socket, inSequencing *se
 
 	srcAddr := netip.AddrFrom4(packet.Header.SourceAddr)
 
-	duplicate, dupErr := inSequencing.IsDuplicatePacket(packet)
+	duplicate, dupErr := inSequencing.IsDuplicatePacket(packet) // TODO what if received packet twice really fast -> second is set as duplicate, and then a fin is send, even though we aren't ready for a fin
 	if dupErr != nil {
 		logger.Warnf(dupErr.Error())
 		return
