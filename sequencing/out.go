@@ -77,11 +77,15 @@ func (h *OutgoingPktNumHandler) GetNextpacketNumber(addr netip.Addr) [4]byte {
 	}
 }
 
+var sem = make(chan struct{}, common.SENDER_WINDOW)
+
 // AddOpenAck adds a sequence number to the open acknowledgments for the given peer and starts a new timeout timer.
 // After the timeout, it will call the provided resend function to resend the packet.
 // Can be called concurrently.
 // Should only be called once per packet.
 func (h *OutgoingPktNumHandler) AddOpenAck(packet *pkt.Packet, resendFunc func()) {
+	sem <- struct{}{}
+
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -151,6 +155,8 @@ func (h *OutgoingPktNumHandler) RemoveOpenAck(addr netip.Addr, pktNum [4]byte) {
 	if !exists {
 		return
 	}
+
+	<-sem
 
 	// ack.timer == nil is an undesired state that shouldn't be possible at best, but it may happen if we called SubscribeToReceivedAck() but never AddOpenAck()
 	if openAck.timer != nil {
