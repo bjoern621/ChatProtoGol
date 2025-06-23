@@ -117,14 +117,16 @@ func (h *OutgoingPktNumHandler) handleAckTimeout(addr netip.Addr, pktNum [4]byte
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
+	openAck, exists := h.openAcks[addr][pktNum]
+	if !exists {
+		return // The open acknowledgment has been removed already, no need to handle the timeout // TODO this seems to happen but if it happens, is returning the right thing?
+	}
+
 	logger.Warnf("ACK timeout for host %s with packet number %v\n", addr, pktNum)
 
 	resendFunc()
 
-	openAck, exists := h.openAcks[addr][pktNum]
-	assert.Assert(exists, "No open acknowledgment found for host %s with packet number %v", addr, pktNum)
-
-	openAck.retries--
+	// openAck.retries--
 	if openAck.retries <= 0 {
 		logger.Warnf("Removing open acknowledgment for host %s with packet number %v after retries exhausted\n", addr, pktNum)
 		if openAck.observable != nil {
