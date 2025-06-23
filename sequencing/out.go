@@ -126,7 +126,7 @@ func (h *OutgoingPktNumHandler) handleAckTimeout(addr netip.Addr, pktNum [4]byte
 
 	resendFunc()
 
-	// openAck.retries--
+	// openAck.retries-- // TODO
 	if openAck.retries <= 0 {
 		logger.Warnf("Removing open acknowledgment for host %s with packet number %v after retries exhausted\n", addr, pktNum)
 		if openAck.observable != nil {
