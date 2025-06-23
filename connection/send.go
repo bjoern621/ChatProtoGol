@@ -102,10 +102,12 @@ func sendPacketTo(addrPort netip.AddrPort, packet *pkt.Packet) error {
 }
 
 // BuildSequencedPacket constructs a packet with the next packet number for the destination address.
+// This function creates a copy of the payload so that the original payload can be modified without affecting the packet.
 func BuildSequencedPacket(msgType byte, lastBit bool, payload pkt.Payload, destAddr netip.Addr) *pkt.Packet {
-	return buildPacket(msgType, lastBit, payload, destAddr, outgoingSequencing.GetNextpacketNumber(destAddr))
+	payloadCopy := make(pkt.Payload, len(payload))
+	copy(payloadCopy, payload)
+	return buildPacket(msgType, lastBit, payloadCopy, destAddr, outgoingSequencing.GetNextpacketNumber(destAddr))
 }
-
 func buildPacket(msgType byte, lastBit bool, payload pkt.Payload, destAddr netip.Addr, pktNum [4]byte) *pkt.Packet {
 	packet := &pkt.Packet{
 		Header: pkt.Header{
