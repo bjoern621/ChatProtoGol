@@ -1,6 +1,7 @@
 package pkt
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 
@@ -127,8 +128,6 @@ func MakeControlByte(msgType byte, lastBit bool, teamID byte) byte {
 }
 
 func (p *Packet) String() string {
-	seqNum := uint32(p.Header.PktNum[0])<<24 | uint32(p.Header.PktNum[1])<<16 | uint32(p.Header.PktNum[2])<<8
-
 	return "{ " +
 		fmt.Sprintf("Src:%d.%d.%d.%d ", p.Header.SourceAddr[0], p.Header.SourceAddr[1], p.Header.SourceAddr[2], p.Header.SourceAddr[3]) +
 		fmt.Sprintf("Dest:%d.%d.%d.%d ", p.Header.DestAddr[0], p.Header.DestAddr[1], p.Header.DestAddr[2], p.Header.DestAddr[3]) +
@@ -137,6 +136,6 @@ func (p *Packet) String() string {
 		fmt.Sprintf("Team:%d ", p.GetTeamID()) +
 		fmt.Sprintf("TTL:%d ", p.Header.TTL) +
 		fmt.Sprintf("Chksum:0x%04X ", p.Header.Checksum) +
-		fmt.Sprintf("Seq:%d ", seqNum) +
+		fmt.Sprintf("PktNum:%d ", binary.BigEndian.Uint32(p.Header.PktNum[:])) +
 		"}"
 }
