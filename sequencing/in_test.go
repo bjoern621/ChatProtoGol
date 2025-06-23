@@ -111,7 +111,7 @@ func TestIsDuplicatePacket(t *testing.T) {
 	}
 
 	// Packet too far ahead
-	p100 := makePacket(peer, local, uint32(common.RECEIVE_BUFFER_SIZE)+10)
+	p100 := makePacket(peer, local, uint32(common.RECEIVER_WINDOW)+10)
 	_, err = h.IsDuplicatePacket(p100)
 	if err == nil {
 		t.Errorf("Packet too far ahead should error, got err=nil")

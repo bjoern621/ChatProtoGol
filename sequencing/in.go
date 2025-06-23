@@ -90,7 +90,7 @@ func (h *IncomingPktNumHandler) IsDuplicatePacket(packet *pkt.Packet) (bool, err
 	} else if seqNum > highest+1 {
 		// Out-of-order, store seq num for future
 
-		if seqNum-highest > common.RECEIVE_BUFFER_SIZE {
+		if seqNum-highest > common.RECEIVER_WINDOW {
 			return true, errors.New("Received packet with sequence number too far ahead, dropping packet")
 		}
 
