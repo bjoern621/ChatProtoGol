@@ -7,6 +7,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"bjoernblessin.de/chatprotogol/common"
 	"bjoernblessin.de/chatprotogol/pkt"
@@ -16,6 +17,7 @@ import (
 
 // OnDiskReconstructor is responsible for reconstructing file transfer packets.
 // It stores state needed to reconstruct one open file transfer sequence at a time.
+// The OnDiskReconstructor is thread-safe and can be used concurrently.
 type OnDiskReconstructor struct {
 	packetBuffer           map[int64]pkt.Payload
 	lowestPktNum           int64
@@ -24,6 +26,7 @@ type OnDiskReconstructor struct {
 	file                   *os.File
 	inSequencing           *sequencing.IncomingPktNumHandler
 	peerAddr               netip.Addr
+	mu                     sync.Mutex // Mutex to protect concurrent access to the (whole) reconstructor
 }
 
 func NewOnDiskReconstructor(inSeq *sequencing.IncomingPktNumHandler, peerAddr netip.Addr) *OnDiskReconstructor {
@@ -39,6 +42,9 @@ func NewOnDiskReconstructor(inSeq *sequencing.IncomingPktNumHandler, peerAddr ne
 
 // HandleIncomingFilePacket processes an incoming file transfer packet.
 func (r *OnDiskReconstructor) HandleIncomingFilePacket(packet *pkt.Packet) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	pktNum := int64(binary.BigEndian.Uint32(packet.Header.PktNum[:]))
 
 	r.packetBuffer[pktNum] = packet.Payload
@@ -55,7 +61,7 @@ func (r *OnDiskReconstructor) HandleIncomingFilePacket(packet *pkt.Packet) error
 	if r.lowestPktNum < 0 {
 		// This is the first packet, initialize lowestPktNum
 		r.lowestPktNum = pktNum
-		r.highestWrittenPktNum = pktNum
+		r.highestWrittenPktNum = pktNum // TODO test highestWrittenPktNum is never decreased
 
 		return nil
 	}
@@ -75,14 +81,21 @@ func (r *OnDiskReconstructor) HandleIncomingFilePacket(packet *pkt.Packet) error
 
 // flushBuffer writes buffered packets to disk and clears the buffer.
 func (r *OnDiskReconstructor) flushContiguousPayloads() {
-	for i := r.highestWrittenPktNum + 1; i <= r.highestUnwrittenPktNum; i++ {
-		payload, ok := r.packetBuffer[i]
-		if i > r.inSequencing.GetHighestContiguousSeqNum(r.peerAddr) {
-			return // Can't write this packet yet, it is not contiguous
-		}
+	// highestContiguousPktNum := r.inSequencing.GetHighestContiguousSeqNum(r.peerAddr)
+	// TODO ^^^
+	// TODO bug out of order received, GetHighestContiguousSeqNum() already updated, but HandleIncomingFilePacket() not called yet with the new packet
+	// TODO meaning that GetHighestContiguousSeqNum() is e.g. N, we try to write N-2 til N, we write N-2 and N-1, but N is not written (it is skipped) because we dont have it in the buffer yet
+	// TODO we should keep our on GetHighestContiguousSeqNum() and dont rely on sequencing
+	// TODO maybe a method like HandleIncomingNonFilePacket()
 
+	for i := r.highestWrittenPktNum + 1; i <= r.highestUnwrittenPktNum; i++ {
+		// if i > highestContiguousPktNum {
+		// 	return // Can't write this packet yet, it is not contiguous
+		// }
+
+		payload, ok := r.packetBuffer[i]
 		if !ok {
-			continue // Skip if no payload for this packet number
+			return
 		}
 
 		_, err := r.file.Write(payload)
@@ -99,7 +112,7 @@ func (r *OnDiskReconstructor) flushRemainingPayloads() {
 	for i := r.highestWrittenPktNum + 1; i <= r.highestUnwrittenPktNum; i++ {
 		payload, ok := r.packetBuffer[i]
 		if !ok {
-			continue // Skip if no payload for this packet number
+			continue // Skip if no payload for this packet number; this means that the packet with packet number i is not a file transfer packet
 		}
 
 		_, err := r.file.Write(payload)
@@ -114,6 +127,9 @@ func (r *OnDiskReconstructor) flushRemainingPayloads() {
 // FinishFilePacketSequence completes the current packet sequence for a specific source address.
 // It returns the file path of the reconstructed file.
 func (r *OnDiskReconstructor) FinishFilePacketSequence() (string, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	r.flushRemainingPayloads()
 
 	err := r.file.Close()
@@ -142,6 +158,9 @@ func (r *OnDiskReconstructor) FinishFilePacketSequence() (string, error) {
 
 // GetHighestPktNum returns the highest packet number that has been processed by this reconstructor.
 func (r *OnDiskReconstructor) GetHighestPktNum() (uint32, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	if r.highestUnwrittenPktNum < 0 {
 		return 0, errors.New("no packets buffered")
 	}
