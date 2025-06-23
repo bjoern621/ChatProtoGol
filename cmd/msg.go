@@ -68,7 +68,7 @@ func HandleSend(args []string) {
 
 	// Send the FIN message after all chunks have been sent and acknowledged
 	go func() {
-		wg.Wait()
+		wg.Wait() // TODO sometimes wait forever?
 
 		payload := []byte(lastChunkPktNum[:])
 		packet := connection.BuildSequencedPacket(pkt.MsgTypeFinish, false, payload, peerIP)
