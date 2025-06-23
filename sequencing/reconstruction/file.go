@@ -104,7 +104,6 @@ func (r *OnDiskReconstructor) flushRemainingPayloads() {
 
 		_, err := r.file.Write(payload)
 		if err != nil {
-			fmt.Printf("awdwadwad")
 			assert.IsNil(err, "failed to write remaining payload to file in flushRemainingPayloads")
 			return
 		}
