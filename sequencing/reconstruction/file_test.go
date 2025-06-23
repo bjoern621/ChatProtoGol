@@ -112,3 +112,32 @@ func Test_MissingPackets(t *testing.T) {
 		t.Errorf("file contents mismatch (missing packets).\nGot:  %q\nWant: %q", got, want)
 	}
 }
+
+func Test_MetadataNotFirstPacket(t *testing.T) {
+	metaPayload := []byte("testfile_result.bin")
+	content1 := []byte("Hello, ")
+	content2 := []byte("world!")
+	content3 := []byte(" Goodbye.")
+
+	inSeq := &sequencing.IncomingPktNumHandler{}
+	peerAddr := netip.MustParseAddr("10.0.0.2")
+
+	r := NewOnDiskReconstructor(inSeq, peerAddr)
+	r.HandleIncomingFilePacket(makePacket(1, content1))
+	r.HandleIncomingFilePacket(makePacket(3, content3))
+	r.HandleIncomingFilePacket(makePacket(0, metaPayload))
+	r.HandleIncomingFilePacket(makePacket(2, content2))
+
+	filePath, err := r.FinishFilePacketSequence()
+	if err != nil {
+		t.Fatalf("FinishFilePacketSequence failed: %v", err)
+	}
+	got, err := os.ReadFile(filePath)
+	if err != nil {
+		t.Fatalf("failed to read reconstructed file: %v", err)
+	}
+	want := append(append(content1, content2...), content3...)
+	if string(got) != string(want) {
+		t.Errorf("file contents mismatch (metadata not first).\nGot:  %q\nWant: %q", got, want)
+	}
+}

@@ -61,13 +61,14 @@ func (r *OnDiskReconstructor) HandleIncomingFilePacket(packet *pkt.Packet) error
 	if r.lowestPktNum < 0 {
 		// This is the first packet, initialize lowestPktNum
 		r.lowestPktNum = pktNum
-		r.highestWrittenPktNum = pktNum // TODO test highestWrittenPktNum is never decreased
+		r.highestWrittenPktNum = pktNum
 
 		return nil
 	}
 
 	if pktNum < r.lowestPktNum {
 		r.lowestPktNum = pktNum
+		r.highestWrittenPktNum = pktNum // If we receive a packet with a lower number than the lowest, we know that we have not written any packets yet, so we can reset the highestWrittenPktNum
 	}
 
 	if pktNum > r.highestUnwrittenPktNum {
