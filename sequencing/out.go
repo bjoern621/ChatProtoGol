@@ -20,9 +20,10 @@ type OpenAck struct {
 }
 
 type OutgoingPktNumHandler struct {
-	packetNumbers map[netip.Addr]uint32 // Maps a host address to the last packet number that was used for that host.
-	openAcks      map[netip.Addr]map[[4]byte]*OpenAck
-	mu            sync.Mutex
+	packetNumbers      map[netip.Addr]uint32 // Maps a host address to the last packet number that was used for that host.
+	openAcks           map[netip.Addr]map[[4]byte]*OpenAck
+	mu                 sync.Mutex
+	highestAckedPktNum map[netip.Addr]int64 // Maps a host address to the highest packet number that has been acknowledged for that host. // TODO
 }
 
 func NewOutgoingPktNumHandler() *OutgoingPktNumHandler {
