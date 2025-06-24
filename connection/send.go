@@ -50,7 +50,7 @@ func SendReliableRoutedPacket(packet *pkt.Packet) error {
 		return errors.New("no next hop found for the destination address")
 	}
 
-	outgoingSequencing.AddOpenAck(packet, func() {
+	err := outgoingSequencing.AddOpenAck(packet, func() {
 		nextHop, found := router.GetNextHop(destinationIP) // Get the current next hop again (it may have changed)
 		if !found {
 			logger.Infof("Host %s is no longer reachable, removing open acknowledgment for packet number %v", destinationIP, packet.Header.PktNum)
@@ -59,8 +59,11 @@ func SendReliableRoutedPacket(packet *pkt.Packet) error {
 
 		_ = sendPacketTo(nextHop, packet)
 	})
+	if err != nil {
+		return errors.New("failed to add open acknowledgment: " + err.Error())
+	}
 
-	err := sendPacketTo(nextHop, packet)
+	err = sendPacketTo(nextHop, packet)
 	if err != nil {
 		return err
 	}
@@ -72,11 +75,14 @@ func SendReliableRoutedPacket(packet *pkt.Packet) error {
 // Reliable: Resends and timeouts are handled.
 // To: Send the packet to a specific address and port.
 func SendReliablePacketTo(addrPort netip.AddrPort, packet *pkt.Packet) error {
-	outgoingSequencing.AddOpenAck(packet, func() {
+	err := outgoingSequencing.AddOpenAck(packet, func() {
 		_ = sendPacketTo(addrPort, packet)
 	})
+	if err != nil {
+		return errors.New("failed to add open acknowledgment: " + err.Error())
+	}
 
-	err := sendPacketTo(addrPort, packet)
+	err = sendPacketTo(addrPort, packet)
 	if err != nil {
 		return err
 	}
