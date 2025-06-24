@@ -1,6 +1,8 @@
 package sequencing
 
 import (
+	"encoding/binary"
+	"errors"
 	"net/netip"
 	"sync"
 	"time"
@@ -20,16 +22,19 @@ type OpenAck struct {
 }
 
 type OutgoingPktNumHandler struct {
-	packetNumbers      map[netip.Addr]uint32 // Maps a host address to the last packet number that was used for that host.
-	openAcks           map[netip.Addr]map[[4]byte]*OpenAck
-	mu                 sync.Mutex
-	highestAckedPktNum map[netip.Addr]int64 // Maps a host address to the highest packet number that has been acknowledged for that host. // TODO
+	packetNumbers                map[netip.Addr]uint32 // Maps a host address to the last packet number that was used for that host.
+	openAcks                     map[netip.Addr]map[uint32]*OpenAck
+	mu                           sync.Mutex
+	highestAckedContiguousPktNum map[netip.Addr]int64 // Maps a host address to the highest packet number that has been acknowledged for that host.
+	senderWindow                 int64
 }
 
 func NewOutgoingPktNumHandler() *OutgoingPktNumHandler {
 	return &OutgoingPktNumHandler{
-		packetNumbers: make(map[netip.Addr]uint32),
-		openAcks:      make(map[netip.Addr]map[[4]byte]*OpenAck),
+		packetNumbers:                make(map[netip.Addr]uint32),
+		openAcks:                     make(map[netip.Addr]map[uint32]*OpenAck),
+		highestAckedContiguousPktNum: make(map[netip.Addr]int64),
+		senderWindow:                 common.SENDER_WINDOW,
 	}
 }
 
@@ -77,44 +82,56 @@ func (h *OutgoingPktNumHandler) GetNextpacketNumber(addr netip.Addr) [4]byte {
 	}
 }
 
-var sem = make(chan struct{}, common.SENDER_WINDOW)
-
 // AddOpenAck adds a sequence number to the open acknowledgments for the given peer and starts a new timeout timer.
 // After the timeout, it will call the provided resend function to resend the packet.
 // Can be called concurrently.
 // Should only be called once per packet.
-func (h *OutgoingPktNumHandler) AddOpenAck(packet *pkt.Packet, resendFunc func()) {
-	sem <- struct{}{}
-
+func (h *OutgoingPktNumHandler) AddOpenAck(packet *pkt.Packet, resendFunc func()) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
 	addr := netip.AddrFrom4(packet.Header.DestAddr)
 	pktNum := packet.Header.PktNum
 
+	pktNum64 := int64(binary.BigEndian.Uint32(pktNum[:]))
+
+	highestAcked, ok := h.highestAckedContiguousPktNum[addr]
+	if !ok {
+		highestAcked = -1 // No packets have been acknowledged yet for this address
+		h.highestAckedContiguousPktNum[addr] = highestAcked
+	}
+
+	if pktNum64-highestAcked > h.senderWindow {
+		return errors.New("Packet number exceeds sender window")
+	}
+
 	openAck := h.createOpenAckIfNotExists(addr, pktNum)
 
 	assert.Assert(openAck.timer == nil, "Open acknowledgment for host %s with packet number %v already exists", addr, pktNum)
 
 	openAck.timer = time.AfterFunc(time.Second*common.ACK_TIMEOUT_SECONDS, func() { h.handleAckTimeout(addr, pktNum, resendFunc) })
+
+	return nil
 }
 
 // createOpenAckIfNotExists creates a new OpenAck for the given address and packet number if it does not already exist.
 // It initializes the retries. Timer and observable are set to nil initially.
 func (h *OutgoingPktNumHandler) createOpenAckIfNotExists(addr netip.Addr, pktNum [4]byte) *OpenAck {
 	if _, exists := h.openAcks[addr]; !exists {
-		h.openAcks[addr] = map[[4]byte]*OpenAck{}
+		h.openAcks[addr] = map[uint32]*OpenAck{}
 	}
 
-	if _, exists := h.openAcks[addr][pktNum]; !exists {
-		h.openAcks[addr][pktNum] = &OpenAck{
+	pktNum32 := binary.BigEndian.Uint32(pktNum[:])
+
+	if _, exists := h.openAcks[addr][pktNum32]; !exists {
+		h.openAcks[addr][pktNum32] = &OpenAck{
 			timer:      nil,
 			retries:    common.RETRIES_PER_PACKET,
 			observable: nil,
 		}
 	}
 
-	return h.openAcks[addr][pktNum]
+	return h.openAcks[addr][pktNum32]
 }
 
 // handleAckTimeout is called when an acknowledgment timeout occurs.
@@ -122,7 +139,9 @@ func (h *OutgoingPktNumHandler) handleAckTimeout(addr netip.Addr, pktNum [4]byte
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	openAck, exists := h.openAcks[addr][pktNum]
+	pktNum32 := binary.BigEndian.Uint32(pktNum[:])
+
+	openAck, exists := h.openAcks[addr][pktNum32]
 	if !exists {
 		return // The open acknowledgment has been removed already, no need to handle the timeout // TODO this seems to happen but if it happens, is returning the right thing?
 	}
@@ -131,13 +150,13 @@ func (h *OutgoingPktNumHandler) handleAckTimeout(addr netip.Addr, pktNum [4]byte
 
 	resendFunc()
 
-	openAck.retries-- // TODO
+	openAck.retries--
 	if openAck.retries <= 0 {
 		logger.Warnf("Removing open acknowledgment for host %s with packet number %v after retries exhausted\n", addr, pktNum)
 		if openAck.observable != nil {
 			openAck.observable.NotifyObservers(false) // Notify observers that the ACK was not received
 		}
-		delete(h.openAcks[addr], pktNum) // No more retries left, remove the open acknowledgment
+		delete(h.openAcks[addr], pktNum32) // No more retries left, remove the open acknowledgment
 		return
 	}
 
@@ -151,12 +170,12 @@ func (h *OutgoingPktNumHandler) RemoveOpenAck(addr netip.Addr, pktNum [4]byte) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	openAck, exists := h.openAcks[addr][pktNum]
+	pktNum32 := binary.BigEndian.Uint32(pktNum[:])
+
+	openAck, exists := h.openAcks[addr][pktNum32]
 	if !exists {
 		return
 	}
-
-	<-sem
 
 	// ack.timer == nil is an undesired state that shouldn't be possible at best, but it may happen if we called SubscribeToReceivedAck() but never AddOpenAck()
 	if openAck.timer != nil {
@@ -165,7 +184,31 @@ func (h *OutgoingPktNumHandler) RemoveOpenAck(addr netip.Addr, pktNum [4]byte) {
 	if openAck.observable != nil {
 		openAck.observable.NotifyObservers(true) // Notify observers that the ACK was received
 	}
-	delete(h.openAcks[addr], pktNum)
+
+	delete(h.openAcks[addr], pktNum32)
+	if len(h.openAcks[addr]) == 0 {
+		delete(h.openAcks, addr)
+	}
+
+	// Advance highest if acked packets are now contiguous
+	for {
+		openAcks, hasOpenAcks := h.openAcks[addr]
+
+		nextHighestPktNum32 := uint32(h.highestAckedContiguousPktNum[addr] + 1)
+
+		_, hasNextOpenAck := openAcks[nextHighestPktNum32]
+
+		if !hasOpenAcks || hasNextOpenAck {
+			break
+		}
+
+		delete(openAcks, nextHighestPktNum32)
+		if len(openAcks) == 0 {
+			delete(h.openAcks, addr)
+		}
+
+		h.highestAckedContiguousPktNum[addr]++
+	}
 }
 
 // SubscribeToReceivedAck subscribes to the observable for a specific packet.
