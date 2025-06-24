@@ -44,9 +44,7 @@ func HandleSend(args []string) {
 	for start < bytesLen {
 		end := min(start+common.MAX_PAYLOAD_SIZE_BYTES, bytesLen)
 
-		payload := msgBytes[start:end]
-
-		packet := connection.BuildSequencedPacket(pkt.MsgTypeChatMessage, false, payload, peerIP)
+		packet := connection.BuildSequencedPacket(pkt.MsgTypeChatMessage, msgBytes[start:end], peerIP)
 
 		lastChunkPktNum = packet.Header.PktNum
 
@@ -71,7 +69,7 @@ func HandleSend(args []string) {
 		wg.Wait() // TODO sometimes wait forever?
 
 		payload := []byte(lastChunkPktNum[:])
-		packet := connection.BuildSequencedPacket(pkt.MsgTypeFinish, false, payload, peerIP)
+		packet := connection.BuildSequencedPacket(pkt.MsgTypeFinish, payload, peerIP)
 
 		go func() {
 			<-outSequencing.SubscribeToReceivedAck(packet)

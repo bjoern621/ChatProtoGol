@@ -55,7 +55,7 @@ func HandleSendFile(args []string) {
 		return
 	}
 
-	packet := connection.BuildSequencedPacket(pkt.MsgTypeFileTransfer, true, []byte(fileInfo.Name()), peerIP)
+	packet := connection.BuildSequencedPacket(pkt.MsgTypeFileTransfer, []byte(fileInfo.Name()), peerIP)
 	err = connection.SendReliableRoutedPacket(packet)
 	if err != nil {
 		logger.Warnf("Failed to send metadata packet to %s: %v, cancelling file transfer\n", peerIP, err)
@@ -74,7 +74,7 @@ func HandleSendFile(args []string) {
 			fmt.Printf("Failed to read file %s: %v\n", args[1], err)
 		}
 
-		packet := connection.BuildSequencedPacket(pkt.MsgTypeFileTransfer, false, buffer[:n], peerIP)
+		packet := connection.BuildSequencedPacket(pkt.MsgTypeFileTransfer, buffer[:n], peerIP)
 		lastChunkPktNum = packet.Header.PktNum
 
 		wg.Add(1)
@@ -96,7 +96,7 @@ func HandleSendFile(args []string) {
 		wg.Wait()
 
 		payload := []byte(lastChunkPktNum[:])
-		packet := connection.BuildSequencedPacket(pkt.MsgTypeFinish, false, payload, peerIP)
+		packet := connection.BuildSequencedPacket(pkt.MsgTypeFinish, payload, peerIP)
 
 		go func() {
 			<-outSequencing.SubscribeToReceivedAck(packet)

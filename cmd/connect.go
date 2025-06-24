@@ -61,7 +61,7 @@ func connect(ipv4String string, portString string) {
 
 	addrPort := netip.AddrPortFrom(addr, uint16(port))
 
-	packet := connection.BuildSequencedPacket(pkt.MsgTypeConnect, true, nil, addr)
+	packet := connection.BuildSequencedPacket(pkt.MsgTypeConnect, nil, addr)
 
 	go func() {
 		success := <-outSequencing.SubscribeToReceivedAck(packet)

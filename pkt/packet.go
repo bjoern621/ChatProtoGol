@@ -20,9 +20,9 @@ import (
 //	|                  Destination IPv4 Address (32 bits)                   |
 //	|                                                                       |
 //	+--------+--------+--------+--------+--------+--------+--------+--------+
-//	|  Msg   |  Last  |  Team  |        |                                   |
-//	|  Type  |  Bit   |   ID   |  TTL   |        Checksum (16 bits)         |
-//	|(4 bits)|(1 bit) |(3 bits)|(8 bits)|                                   |
+//	|  Msg   |  Team  |                 |                                   |
+//	|  Type  |   ID   |   TTL (8 bits)  |        Checksum (16 bits)         |
+//	|(4 bits)|(4 bits)|                 |                                   |
 //	+--------+--------+--------+--------+--------+--------+--------+--------+
 //	|                                                                       |
 //	|                   Packet Number (32 bits)                             |
@@ -33,7 +33,7 @@ import (
 type Header struct {
 	SourceAddr [4]byte // Source IP address (32 bits)
 	DestAddr   [4]byte // Destination IP address (32 bits)
-	Control    byte    // Control byte containing: Message Type (4 bits), Last Bit (1 bit), Team ID (3 bits)
+	Control    byte    // Control byte containing: Message Type (4 bits) and Team ID (4 bits)
 	TTL        byte    // Time to live (8 bits)
 	Checksum   [2]byte // Checksum (16 bits)
 	PktNum     [4]byte // Packet number (32 bits)
@@ -97,31 +97,23 @@ func (p *Packet) ToByteArray() []byte {
 	return data
 }
 
-func (p *Packet) IsLast() bool {
-	return p.Header.Control&0b1000 != 0
-}
-
 func (p *Packet) GetMessageType() byte {
 	return p.Header.Control & 0xF0 >> 4
 }
 
 func (p *Packet) GetTeamID() byte {
-	return p.Header.Control & 0b111
+	return p.Header.Control & 0xF
 }
 
 // MakeControlByte creates a control byte for a message packet.
 // The control byte is structured as follows:
 // - Bits 0-3: Message type (4 bits)
-// - Bit 4: Last bit flag (1 bit)
-// - Bits 5-7: Team ID (3 bits)
-func MakeControlByte(msgType byte, lastBit bool, teamID byte) byte {
-	assert.Assert(teamID <= 0b111, "teamID must be 3 bits (0-7)")
+// - Bits 4-7: Team ID (4 bits)
+func MakeControlByte(msgType byte, teamID byte) byte {
+	assert.Assert(teamID <= 0b1111, "teamID must be 4 bits (0-15)")
 	assert.Assert(msgType <= 0b1111, "msgType must be 4 bits (0-15)")
 
 	controlByte := msgType << 4
-	if lastBit {
-		controlByte |= 0b1000
-	}
 	controlByte |= teamID
 
 	return controlByte
@@ -132,7 +124,6 @@ func (p *Packet) String() string {
 		fmt.Sprintf("Src:%d.%d.%d.%d ", p.Header.SourceAddr[0], p.Header.SourceAddr[1], p.Header.SourceAddr[2], p.Header.SourceAddr[3]) +
 		fmt.Sprintf("Dest:%d.%d.%d.%d ", p.Header.DestAddr[0], p.Header.DestAddr[1], p.Header.DestAddr[2], p.Header.DestAddr[3]) +
 		fmt.Sprintf("Type:0x%X ", p.GetMessageType()) +
-		fmt.Sprintf("Last:%t ", p.IsLast()) +
 		fmt.Sprintf("Team:%d ", p.GetTeamID()) +
 		fmt.Sprintf("TTL:%d ", p.Header.TTL) +
 		fmt.Sprintf("Chksum:0x%04X ", p.Header.Checksum) +

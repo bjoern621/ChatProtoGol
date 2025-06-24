@@ -48,7 +48,7 @@ func disconnectFrom(addr netip.Addr) (<-chan bool, error) {
 		return nil, fmt.Errorf("not connected to %s", addr)
 	}
 
-	packet := connection.BuildSequencedPacket(pkt.MsgTypeDisconnect, true, nil, addr)
+	packet := connection.BuildSequencedPacket(pkt.MsgTypeDisconnect, nil, addr)
 
 	go func() {
 		success := <-outSequencing.SubscribeToReceivedAck(packet)

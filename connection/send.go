@@ -103,18 +103,18 @@ func sendPacketTo(addrPort netip.AddrPort, packet *pkt.Packet) error {
 
 // BuildSequencedPacket constructs a packet with the next packet number for the destination address.
 // This function creates a copy of the payload so that the original payload can be modified without affecting the packet.
-func BuildSequencedPacket(msgType byte, lastBit bool, payload pkt.Payload, destAddr netip.Addr) *pkt.Packet {
+func BuildSequencedPacket(msgType byte, payload pkt.Payload, destAddr netip.Addr) *pkt.Packet {
 	payloadCopy := make(pkt.Payload, len(payload))
 	copy(payloadCopy, payload)
-	return buildPacket(msgType, lastBit, payloadCopy, destAddr, outgoingSequencing.GetNextpacketNumber(destAddr))
+	return buildPacket(msgType, payloadCopy, destAddr, outgoingSequencing.GetNextpacketNumber(destAddr))
 }
 
-func buildPacket(msgType byte, lastBit bool, payload pkt.Payload, destAddr netip.Addr, pktNum [4]byte) *pkt.Packet {
+func buildPacket(msgType byte, payload pkt.Payload, destAddr netip.Addr, pktNum [4]byte) *pkt.Packet {
 	packet := &pkt.Packet{
 		Header: pkt.Header{
 			SourceAddr: socket.MustGetLocalAddress().Addr().As4(),
 			DestAddr:   destAddr.As4(),
-			Control:    pkt.MakeControlByte(msgType, lastBit, common.TEAM_ID),
+			Control:    pkt.MakeControlByte(msgType, common.TEAM_ID),
 			TTL:        common.INITIAL_TTL,
 			PktNum:     pktNum,
 		},
@@ -132,7 +132,7 @@ func SendRoutedAcknowledgment(addr netip.Addr, pktNum [4]byte) error {
 		return errors.New("no next hop found for the peer address (is the peer disconnected?)")
 	}
 
-	ackPacket := buildPacket(pkt.MsgTypeAcknowledgment, true, nil, addr, pktNum)
+	ackPacket := buildPacket(pkt.MsgTypeAcknowledgment, nil, addr, pktNum)
 
 	err := sendPacketTo(nextHop, ackPacket)
 	if err != nil {
@@ -145,7 +145,7 @@ func SendRoutedAcknowledgment(addr netip.Addr, pktNum [4]byte) error {
 // SendAcknowledgmentTo sends an acknowledgment packet to the specified address and port.
 // To: Send the packet to a specific address and port.
 func SendAcknowledgmentTo(addrPort netip.AddrPort, pktNum [4]byte) error {
-	ackPacket := buildPacket(pkt.MsgTypeAcknowledgment, true, nil, addrPort.Addr(), pktNum)
+	ackPacket := buildPacket(pkt.MsgTypeAcknowledgment, nil, addrPort.Addr(), pktNum)
 
 	err := sendPacketTo(addrPort, ackPacket)
 	if err != nil {
@@ -177,7 +177,7 @@ func FloodLSA(lsaOwner netip.Addr, lsa routing.LSAEntry, exceptAddrs ...netip.Ad
 			continue
 		}
 
-		packet := BuildSequencedPacket(pkt.MsgTypeLSA, true, payload, destAddr)
+		packet := BuildSequencedPacket(pkt.MsgTypeLSA, payload, destAddr)
 
 		err := SendReliablePacketTo(destAddrPort, packet)
 		if err != nil {
@@ -195,7 +195,7 @@ func SendDD(destAddrPort netip.AddrPort) error {
 		payload = append(payload, addrBytes[:]...)
 	}
 
-	packet := BuildSequencedPacket(pkt.MsgTypeDD, true, payload, destAddrPort.Addr())
+	packet := BuildSequencedPacket(pkt.MsgTypeDD, payload, destAddrPort.Addr())
 
 	return SendReliablePacketTo(destAddrPort, packet)
 }
