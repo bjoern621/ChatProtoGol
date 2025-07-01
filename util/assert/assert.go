@@ -5,22 +5,26 @@ import (
 	"reflect"
 )
 
+// IsNil checks if the given error is nil.
 func IsNil(err error, v ...any) {
 	if err != nil {
 		log.Panicf("[ASSERT] %v was not nil. %v", err, v)
 	}
 }
 
+// Never is a function that should never be called.
 func Never(v ...any) {
 	log.Panicf("[ASSERT] %v", v)
 }
 
+// Assert checks if the condition is true.
 func Assert(condition bool, v ...any) {
 	if !condition {
 		log.Panicf("[ASSERT] %v", v)
 	}
 }
 
+// IsNotNil checks if the given object is not nil.
 func IsNotNil(obj any, v ...any) {
 	if obj == nil {
 		log.Panicf("[ASSERT] %v was nil. %v", obj, v)
