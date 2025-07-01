@@ -19,7 +19,7 @@ var (
 )
 
 func handleFileTransfer(packet *pkt.Packet, socket sock.Socket, inSequencing *sequencing.IncomingPktNumHandler) {
-	logger.Infof("FILE RECEIVED %v %d", packet.Header.SourceAddr, packet.Header.PktNum)
+	logger.Debugf("FILE RECEIVED %v %d", packet.Header.SourceAddr, packet.Header.PktNum)
 
 	destAddr := netip.AddrFrom4(packet.Header.DestAddr)
 

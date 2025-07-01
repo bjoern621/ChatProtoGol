@@ -23,7 +23,7 @@ func handleConnect(packet *pkt.Packet, srcAddrPort netip.AddrPort, router *routi
 		return
 	}
 
-	logger.Infof("CONN FROM %v %v", packet.Header.SourceAddr, packet.Header.PktNum)
+	logger.Debugf("CONN FROM %v %v", packet.Header.SourceAddr, packet.Header.PktNum)
 
 	srcAddr := netip.AddrFrom4(packet.Header.SourceAddr)
 	if srcAddr != srcAddrPort.Addr() {

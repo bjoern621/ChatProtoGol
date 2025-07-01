@@ -85,9 +85,8 @@ func HandleSendFile(args []string) {
 		}()
 
 		err = connection.SendReliableRoutedPacket(packet)
-		if err != nil {
-			logger.Warnf("Failed to send file chunk to %s: %v\n", peerIP, err)
-			// Don't return, send the remaining chunks anyway.
+		for err != nil {
+			err = connection.SendReliableRoutedPacket(packet)
 		}
 	}
 

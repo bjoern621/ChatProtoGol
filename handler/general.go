@@ -59,9 +59,11 @@ func (ph *PacketHandler) processPacket(udpPacket *sock.Packet) {
 	}
 
 	if packet.Header.TTL <= 0 {
-		logger.Infof("Received message with TTL <= 0, dropping packet")
+		logger.Warnf("Received message with TTL <= 0, dropping packet")
 		return
 	}
+
+	logger.Debugf(packet.String())
 
 	// TODO handle duplicates for packets that have destaddr == localaddress
 

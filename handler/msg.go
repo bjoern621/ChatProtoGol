@@ -18,7 +18,7 @@ var (
 )
 
 func handleMsg(packet *pkt.Packet, socket sock.Socket, inSequencing *sequencing.IncomingPktNumHandler) {
-	logger.Infof("MSG RECEIVED %v %d", packet.Header.SourceAddr, packet.Header.PktNum)
+	logger.Debugf("MSG RECEIVED %v %d", packet.Header.SourceAddr, packet.Header.PktNum)
 
 	destAddr := netip.AddrFrom4(packet.Header.DestAddr)
 

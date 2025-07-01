@@ -102,7 +102,7 @@ func sendPacketTo(addrPort netip.AddrPort, packet *pkt.Packet) error {
 		return errors.New("failed to send packet to peer: " + err.Error())
 	}
 
-	logger.Infof("SENT %s %d to %v", msgTypeNames[packet.GetMessageType()], packet.Header.PktNum, packet.Header.DestAddr)
+	logger.Debugf("SENT %s %d to %v", msgTypeNames[packet.GetMessageType()], packet.Header.PktNum, packet.Header.DestAddr)
 
 	return nil
 }
@@ -230,7 +230,7 @@ func ForwardRouted(packet *pkt.Packet) error {
 		return err
 	}
 
-	logger.Infof("FORWARDED %s %d to %v", msgTypeNames[packet.GetMessageType()], packet.Header.PktNum, packet.Header.DestAddr)
+	logger.Debugf("FORWARDED %s %d to %v", msgTypeNames[packet.GetMessageType()], packet.Header.PktNum, packet.Header.DestAddr)
 
 	return nil
 }

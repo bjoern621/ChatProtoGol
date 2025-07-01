@@ -23,7 +23,7 @@ func handleLSA(packet *pkt.Packet, router *routing.Router, inSequencing *sequenc
 		return
 	}
 
-	logger.Infof("LSA RECEIVED %v %d", packet.Header.SourceAddr, packet.Header.PktNum)
+	logger.Debugf("LSA RECEIVED %v %d", packet.Header.SourceAddr, packet.Header.PktNum)
 
 	srcAddr := netip.AddrFrom4(packet.Header.SourceAddr)
 	if srcAddr != srcAddrPort.Addr() {
@@ -52,7 +52,7 @@ func handleLSA(packet *pkt.Packet, router *routing.Router, inSequencing *sequenc
 
 	existingLSA, exists := router.GetLSA(lsaOwnerAddr)
 	if exists && existingLSA.SeqNum >= seqNum {
-		logger.Infof("Received LSA of %v(seqnum: %v) from %v(pkt num: %v), but already have seqnum %d", lsaOwnerAddr, seqNum, srcAddr, packet.Header.PktNum, existingLSA.SeqNum)
+		logger.Debugf("Received LSA of %v(seqnum: %v) from %v(pkt num: %v), but already have seqnum %d", lsaOwnerAddr, seqNum, srcAddr, packet.Header.PktNum, existingLSA.SeqNum)
 		return
 	}
 
