@@ -153,10 +153,8 @@ func (h *OutgoingPktNumHandler) handleAckTimeout(addr netip.Addr, pktNum [4]byte
 	openAck.retries--
 	if openAck.retries <= 0 {
 		logger.Warnf("Removing open acknowledgment for host %s with packet number %v after retries exhausted\n", addr, pktNum)
-		if openAck.observable != nil {
-			openAck.observable.NotifyObservers(false) // Notify observers that the ACK was not received
-		}
-		delete(h.openAcks[addr], pktNum32) // No more retries left, remove the open acknowledgment
+		assert.Never("nee")
+		h.removeOpenAck(addr, pktNum, false)
 		return
 	}
 
@@ -165,11 +163,16 @@ func (h *OutgoingPktNumHandler) handleAckTimeout(addr netip.Addr, pktNum [4]byte
 
 // RemoveOpenAck removes a packet from the open acknowledgments and notifies all observers that an ACK was received.
 // If the packet number does not exist, it does nothing.
+// Advances the highest acknowledged contiguous packet number if possible.
 // Can be called concurrently.
 func (h *OutgoingPktNumHandler) RemoveOpenAck(addr netip.Addr, pktNum [4]byte) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
+	h.removeOpenAck(addr, pktNum, true)
+}
+
+func (h *OutgoingPktNumHandler) removeOpenAck(addr netip.Addr, pktNum [4]byte, ackReceived bool) {
 	pktNum32 := binary.BigEndian.Uint32(pktNum[:])
 
 	openAck, exists := h.openAcks[addr][pktNum32]
@@ -182,7 +185,7 @@ func (h *OutgoingPktNumHandler) RemoveOpenAck(addr netip.Addr, pktNum [4]byte) {
 		openAck.timer.Stop()
 	}
 	if openAck.observable != nil {
-		openAck.observable.NotifyObservers(true) // Notify observers that the ACK was received
+		openAck.observable.NotifyObservers(ackReceived) // Notify observers that the ACK was received / not received
 	}
 
 	delete(h.openAcks[addr], pktNum32)
