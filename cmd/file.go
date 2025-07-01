@@ -6,6 +6,7 @@ import (
 	"net/netip"
 	"os"
 	"sync"
+	"time"
 
 	"bjoernblessin.de/chatprotogol/common"
 	"bjoernblessin.de/chatprotogol/connection"
@@ -13,6 +14,8 @@ import (
 	"bjoernblessin.de/chatprotogol/sequencing"
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
+
+var retryDelay = time.Millisecond * 200 // delay after sender window overflow before sending the next packet
 
 func HandleSendFile(args []string) {
 	if len(args) < 2 {
@@ -26,18 +29,8 @@ func HandleSendFile(args []string) {
 		return
 	}
 
-	file, err := os.Open(args[1])
-	if err != nil {
-		fmt.Printf("Failed to open file %s: %v\n", args[1], err)
-		return
-	}
-	defer file.Close()
-
-	wg := &sync.WaitGroup{}
-
-	var lastChunkPktNum [4]byte
-
-	fileInfo, err := file.Stat()
+	filePath := args[1]
+	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		fmt.Printf("Failed to get file info for %s: %v\n", args[1], err)
 		return
@@ -48,6 +41,13 @@ func HandleSendFile(args []string) {
 		return
 	}
 
+	packet := connection.BuildSequencedPacket(pkt.MsgTypeFileTransfer, []byte(fileInfo.Name()), peerIP)
+	err = connection.SendReliableRoutedPacket(packet)
+	if err != nil {
+		logger.Warnf("Failed to send metadata packet to %s: %v, cancelling file transfer\n", peerIP, err)
+		return
+	}
+
 	blocker := sequencing.GetSequenceBlocker(peerIP, pkt.MsgTypeFileTransfer)
 	success := blocker.Block()
 	if !success {
@@ -55,13 +55,21 @@ func HandleSendFile(args []string) {
 		return
 	}
 
-	packet := connection.BuildSequencedPacket(pkt.MsgTypeFileTransfer, []byte(fileInfo.Name()), peerIP)
-	err = connection.SendReliableRoutedPacket(packet)
+	go sendFileChunks(peerIP, filePath, blocker)
+}
+
+func sendFileChunks(peerIP netip.Addr, filePath string, blocker *sequencing.SequenceBlocker) {
+	defer blocker.Unblock()
+
+	file, err := os.Open(filePath)
 	if err != nil {
-		logger.Warnf("Failed to send metadata packet to %s: %v, cancelling file transfer\n", peerIP, err)
-		blocker.Unblock()
+		fmt.Printf("Failed to open file %s: %v\n", filePath, err)
 		return
 	}
+	defer file.Close()
+
+	wg := &sync.WaitGroup{}
+	var lastChunkPktNum [4]byte
 
 	buffer := make([]byte, common.MAX_PAYLOAD_SIZE_BYTES)
 	for {
@@ -71,11 +79,10 @@ func HandleSendFile(args []string) {
 				break
 			}
 
-			fmt.Printf("Failed to read file %s: %v\n", args[1], err)
+			fmt.Printf("Failed to read file %s: %v\n", file.Name(), err)
 		}
 
 		packet := connection.BuildSequencedPacket(pkt.MsgTypeFileTransfer, buffer[:n], peerIP)
-		lastChunkPktNum = packet.Header.PktNum
 
 		wg.Add(1)
 		go func() {
@@ -86,27 +93,28 @@ func HandleSendFile(args []string) {
 
 		err = connection.SendReliableRoutedPacket(packet)
 		for err != nil {
+			time.Sleep(retryDelay)
+			logger.Warnf("Failed to send file chunk %v to %s, retrying: %v\n", packet.Header.PktNum, peerIP, err) // TODO make debugf
 			err = connection.SendReliableRoutedPacket(packet)
 		}
+
+		lastChunkPktNum = packet.Header.PktNum
 	}
 
 	// Send the FIN message after all chunks have been sent and acknowledged
+	wg.Wait()
+
+	payload := []byte(lastChunkPktNum[:])
+	packet := connection.BuildSequencedPacket(pkt.MsgTypeFinish, payload, peerIP)
+
 	go func() {
-		wg.Wait()
-
-		payload := []byte(lastChunkPktNum[:])
-		packet := connection.BuildSequencedPacket(pkt.MsgTypeFinish, payload, peerIP)
-
-		go func() {
-			<-outSequencing.SubscribeToReceivedAck(packet)
-			// We ignore the success of the ACK to avoid blocking the send process. The receiver might not be ready for a new message but we don't care.
-			blocker.Unblock()
-		}()
-
-		err := connection.SendReliableRoutedPacket(packet)
-		if err != nil {
-			logger.Warnf("Failed to send finish message to %s: %v\n", peerIP, err)
-			return
-		}
+		<-outSequencing.SubscribeToReceivedAck(packet)
+		// We ignore the success of the ACK to avoid blocking the send process. The receiver might not be ready for a new message but we don't care.
 	}()
+
+	err = connection.SendReliableRoutedPacket(packet)
+	if err != nil {
+		logger.Warnf("Failed to send finish message to %s: %v\n", peerIP, err)
+		return
+	}
 }
