@@ -96,4 +96,6 @@ func handleConnectAck(addrPort netip.AddrPort, socket sock.Socket) {
 	if err != nil {
 		logger.Warnf("Failed to send database description to %s: %v", addrPort, err)
 	}
+
+	fmt.Printf("Connected to %s\n", addrPort)
 }
