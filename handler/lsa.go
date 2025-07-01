@@ -48,7 +48,7 @@ func handleLSA(packet *pkt.Packet, router *routing.Router, inSequencing *sequenc
 
 	_ = connection.SendAcknowledgmentTo(srcAddrPort, packet.Header.PktNum)
 
-	logger.Infof("LSA of %v with seqnum %d, neighbors: %v", lsaOwnerAddr, seqNum, neighborAddresses)
+	logger.Debugf("LSA of %v with seqnum %d, neighbors: %v", lsaOwnerAddr, seqNum, neighborAddresses)
 
 	existingLSA, exists := router.GetLSA(lsaOwnerAddr)
 	if exists && existingLSA.SeqNum >= seqNum {

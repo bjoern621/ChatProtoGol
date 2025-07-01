@@ -11,34 +11,34 @@ import (
 type LogLevel int
 
 const (
-	NONE LogLevel = iota
-	WARN
-	INFO
-	DEBUG
+	none LogLevel = iota
+	warn
+	info
+	debug
 )
 
-const LOG_LEVEL_ENV = "LOG_LEVEL"
+const logLevelEnv = "LOG_LEVEL"
 
 var logLevel LogLevel
 
 func init() {
-	envvar, present := os.LookupEnv(LOG_LEVEL_ENV)
+	envvar, present := os.LookupEnv(logLevelEnv)
 	if !present {
-		logLevel = INFO
+		logLevel = info
 		return
 	}
 
 	switch envvar {
 	case "NONE":
-		logLevel = NONE
+		logLevel = none
 	case "WARN":
-		logLevel = WARN
+		logLevel = warn
 	case "INFO":
-		logLevel = INFO
+		logLevel = info
 	case "DEBUG":
-		logLevel = DEBUG
+		logLevel = debug
 	default:
-		logLevel = INFO
+		logLevel = info
 		Warnf("Unknown log level '%s', defaulting to INFO", envvar)
 	}
 }
@@ -51,10 +51,10 @@ func Errorf(format string, v ...any) {
 	assert.Never()
 }
 
-// Warnf prints a message prefixed with "[WARN] ".
+// Warnf prints a message prefixed with "[_WARN] ".
 // A newline is added to the end of the message.
 func Warnf(format string, v ...any) {
-	if logLevel < WARN {
+	if logLevel < warn {
 		return
 	}
 	log.Printf(fmt.Sprintf("[WARN] %s", format), v...)
@@ -68,19 +68,19 @@ func Panicf(format string, v ...any) {
 	assert.Never()
 }
 
-// Infof prints an informational message prefixed with "[INFO] ".
+// Infof prints an informational message prefixed with "[_INFO] ".
 // A newline is added to the end of the message.
 func Infof(format string, v ...any) {
-	if logLevel < INFO {
+	if logLevel < info {
 		return
 	}
 	log.Printf(fmt.Sprintf("[INFO] %s", format), v...)
 }
 
-// Debugf prints a debug message prefixed with "[DEBUG] ".
+// Debugf prints a debug message prefixed with "[_DEBUG] ".
 // A newline is added to the end of the message.
 func Debugf(format string, v ...any) {
-	if logLevel < DEBUG {
+	if logLevel < debug {
 		return
 	}
 	log.Printf(fmt.Sprintf("[DEBUG] %s", format), v...)

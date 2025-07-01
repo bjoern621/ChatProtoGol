@@ -51,7 +51,7 @@ func handleDatabaseDescription(packet *pkt.Packet, router *routing.Router, inSeq
 
 	missing := getMissingLSAs(existingAddresses, router)
 
-	logger.Infof("I have %v LSAs, peer has %v LSAs, missing %v LSAs\n", router.GetAvailableLSAs(), existingAddresses, missing)
+	logger.Debugf("I have %v LSAs, peer has %v LSAs, missing %v LSAs\n", router.GetAvailableLSAs(), existingAddresses, missing)
 
 	for _, missingAddr := range missing {
 		lsa, exists := router.GetLSA(missingAddr)
