@@ -7,19 +7,19 @@ import (
 
 var blockerManager = struct {
 	mu      sync.Mutex
-	blocked map[sequenceBlocker]bool
+	blocked map[SequenceBlocker]bool
 }{
-	blocked: make(map[sequenceBlocker]bool),
+	blocked: make(map[SequenceBlocker]bool),
 }
 
-// sequenceBlocker is a struct that provides state to block the sending of packets of a specific message type until the previous sent packets are acknowledged.
-type sequenceBlocker struct {
+// SequenceBlocker is a struct that provides state to block the sending of packets of a specific message type until the previous sent packets are acknowledged.
+type SequenceBlocker struct {
 	destinationAddr netip.Addr
 	msgType         byte
 }
 
-func GetSequenceBlocker(destAddr netip.Addr, msgType byte) *sequenceBlocker {
-	return &sequenceBlocker{
+func GetSequenceBlocker(destAddr netip.Addr, msgType byte) *SequenceBlocker {
+	return &SequenceBlocker{
 		destinationAddr: destAddr,
 		msgType:         msgType,
 	}
@@ -40,7 +40,7 @@ func ClearBlockers(destAddr netip.Addr) {
 // Block blocks tries to set the blocker to the blocked state.
 // If the blocker is already blocked, it returns false, indicating that another message of the same type is currently being sent.
 // If the blocker is not blocked, it sets the blocker to the blocked state and returns true
-func (b *sequenceBlocker) Block() bool {
+func (b *SequenceBlocker) Block() bool {
 	blockerManager.mu.Lock()
 	defer blockerManager.mu.Unlock()
 
@@ -56,7 +56,7 @@ func (b *sequenceBlocker) Block() bool {
 
 // Unblock removes the blocker from the blocked state.
 // If the blocker isn't blocked, this is a no-op.
-func (b *sequenceBlocker) Unblock() {
+func (b *SequenceBlocker) Unblock() {
 	blockerManager.mu.Lock()
 	defer blockerManager.mu.Unlock()
 
