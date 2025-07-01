@@ -13,11 +13,11 @@ import (
 //
 //	+--------+--------+--------+--------+--------+--------+--------+--------+
 //	|                                                                       |
-//	|                     Source IPv4 Address (32 bits)                     |
+//	|                   Destination IPv4 Address (32 bits)                  |
 //	|                                                                       |
 //	+--------+--------+--------+--------+--------+--------+--------+--------+
 //	|                                                                       |
-//	|                  Destination IPv4 Address (32 bits)                   |
+//	|                    Source IPv4 Address (32 bits)                      |
 //	|                                                                       |
 //	+--------+--------+--------+--------+--------+--------+--------+--------+
 //	|  Msg   |  Team  |                 |                                   |
@@ -31,8 +31,8 @@ import (
 //
 // Total size: 16 bytes (128 bits)
 type Header struct {
-	SourceAddr [4]byte // Source IP address (32 bits)
 	DestAddr   [4]byte // Destination IP address (32 bits)
+	SourceAddr [4]byte // Source IP address (32 bits)
 	Control    byte    // Control byte containing: Message Type (4 bits) and Team ID (4 bits)
 	TTL        byte    // Time to live (8 bits)
 	Checksum   [2]byte // Checksum (16 bits)
@@ -64,8 +64,8 @@ func ParsePacket(data []byte) (*Packet, error) {
 	}
 
 	header := Header{
-		SourceAddr: [4]byte{data[0], data[1], data[2], data[3]},
-		DestAddr:   [4]byte{data[4], data[5], data[6], data[7]},
+		DestAddr:   [4]byte{data[0], data[1], data[2], data[3]},
+		SourceAddr: [4]byte{data[4], data[5], data[6], data[7]},
 		Control:    data[8],
 		TTL:        data[9],
 		Checksum:   [2]byte{data[10], data[11]},
@@ -86,8 +86,8 @@ func ParsePacket(data []byte) (*Packet, error) {
 // Returns a byte array containing the header (16 bytes) followed by the payload.
 func (p *Packet) ToByteArray() []byte {
 	data := make([]byte, 0, 16+len(p.Payload))
-	data = append(data, p.Header.SourceAddr[:]...)
 	data = append(data, p.Header.DestAddr[:]...)
+	data = append(data, p.Header.SourceAddr[:]...)
 	data = append(data, p.Header.Control)
 	data = append(data, p.Header.TTL)
 	data = append(data, p.Header.Checksum[:]...)
@@ -121,8 +121,8 @@ func MakeControlByte(msgType byte, teamID byte) byte {
 
 func (p *Packet) String() string {
 	return "{ " +
-		fmt.Sprintf("Src:%d.%d.%d.%d ", p.Header.SourceAddr[0], p.Header.SourceAddr[1], p.Header.SourceAddr[2], p.Header.SourceAddr[3]) +
 		fmt.Sprintf("Dest:%d.%d.%d.%d ", p.Header.DestAddr[0], p.Header.DestAddr[1], p.Header.DestAddr[2], p.Header.DestAddr[3]) +
+		fmt.Sprintf("Src:%d.%d.%d.%d ", p.Header.SourceAddr[0], p.Header.SourceAddr[1], p.Header.SourceAddr[2], p.Header.SourceAddr[3]) +
 		fmt.Sprintf("Type:0x%X ", p.GetMessageType()) +
 		fmt.Sprintf("Team:%d ", p.GetTeamID()) +
 		fmt.Sprintf("TTL:%d ", p.Header.TTL) +
