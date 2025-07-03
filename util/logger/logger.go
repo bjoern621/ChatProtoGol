@@ -15,6 +15,7 @@ const (
 	Warn
 	Info
 	Debug
+	Trace
 )
 
 const logLevelEnv = "LOG_LEVEL"
@@ -37,6 +38,8 @@ func init() {
 		logLevel = Info
 	case "DEBUG":
 		logLevel = Debug
+	case "TRACE":
+		logLevel = Trace
 	default:
 		logLevel = Info
 		Warnf("Unknown log level '%s', defaulting to INFO", envvar)
@@ -61,6 +64,8 @@ func (l LogLevel) String() string {
 		return "INFO"
 	case Debug:
 		return "DEBUG"
+	case Trace:
+		return "TRACE"
 	default:
 		return "UNKNOWN"
 	}
@@ -74,7 +79,7 @@ func Errorf(format string, v ...any) {
 	assert.Never()
 }
 
-// Warnf prints a message prefixed with "[_WARN] ".
+// Warnf prints a message prefixed with "[WARN] ".
 // A newline is added to the end of the message.
 func Warnf(format string, v ...any) {
 	if logLevel < Warn {
@@ -91,7 +96,7 @@ func Panicf(format string, v ...any) {
 	assert.Never()
 }
 
-// Infof prints an informational message prefixed with "[_INFO] ".
+// Infof prints an informational message prefixed with "[INFO] ".
 // A newline is added to the end of the message.
 func Infof(format string, v ...any) {
 	if logLevel < Info {
@@ -100,11 +105,20 @@ func Infof(format string, v ...any) {
 	log.Printf(fmt.Sprintf("[INFO] %s", format), v...)
 }
 
-// Debugf prints a debug message prefixed with "[_DEBUG] ".
+// Debugf prints a debug message prefixed with "[DEBUG] ".
 // A newline is added to the end of the message.
 func Debugf(format string, v ...any) {
 	if logLevel < Debug {
 		return
 	}
 	log.Printf(fmt.Sprintf("[DEBUG] %s", format), v...)
+}
+
+// Tracef prints a trace message prefixed with "[TRACE] ".
+// A newline is added to the end of the message.
+func Tracef(format string, v ...any) {
+	if logLevel < Trace {
+		return
+	}
+	log.Printf(fmt.Sprintf("[TRACE] %s", format), v...)
 }

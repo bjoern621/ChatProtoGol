@@ -103,7 +103,7 @@ func sendPacketTo(addrPort netip.AddrPort, packet *pkt.Packet) error {
 		return errors.New("failed to send packet to peer: " + err.Error())
 	}
 
-	logger.Debugf("SENT %s %d to %v", msgTypeNames[packet.GetMessageType()], packet.Header.PktNum, packet.Header.DestAddr)
+	logger.Tracef("SENT %s %d to %v", msgTypeNames[packet.GetMessageType()], packet.Header.PktNum, packet.Header.DestAddr)
 
 	return nil
 }

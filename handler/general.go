@@ -63,7 +63,7 @@ func (ph *PacketHandler) processPacket(udpPacket *sock.Packet) {
 		return
 	}
 
-	logger.Debugf(packet.String())
+	logger.Tracef(packet.String())
 
 	// TODO handle duplicates for packets that have destaddr == localaddress
 

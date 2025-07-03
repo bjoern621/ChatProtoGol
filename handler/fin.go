@@ -13,7 +13,7 @@ import (
 )
 
 func handleFinish(packet *pkt.Packet, inSequencing *sequencing.IncomingPktNumHandler, socket sock.Socket) {
-	logger.Debugf("FINISH FROM %v %d", packet.Header.SourceAddr, packet.Header.PktNum)
+	logger.Tracef("FINISH FROM %v %d", packet.Header.SourceAddr, packet.Header.PktNum)
 
 	destAddr := netip.AddrFrom4(packet.Header.DestAddr)
 

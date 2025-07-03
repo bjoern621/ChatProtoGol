@@ -24,7 +24,7 @@ func handleDatabaseDescription(packet *pkt.Packet, router *routing.Router, inSeq
 		return
 	}
 
-	logger.Debugf("DD RECEIVED %v %d", packet.Header.SourceAddr, packet.Header.PktNum)
+	logger.Tracef("DD RECEIVED %v %d", packet.Header.SourceAddr, packet.Header.PktNum)
 
 	srcAddr := netip.AddrFrom4(packet.Header.SourceAddr)
 	if srcAddr != srcAddrPort.Addr() {

@@ -23,7 +23,7 @@ func handleDisconnect(packet *pkt.Packet, inSequencing *sequencing.IncomingPktNu
 		return
 	}
 
-	logger.Debugf("DISCO FROM %v %v", packet.Header.SourceAddr, packet.Header.PktNum)
+	logger.Tracef("DISCO FROM %v %v", packet.Header.SourceAddr, packet.Header.PktNum)
 
 	srcAddr := netip.AddrFrom4(packet.Header.SourceAddr)
 	if srcAddr != srcAddrPort.Addr() {

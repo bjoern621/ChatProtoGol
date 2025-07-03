@@ -23,7 +23,7 @@ func handleLSA(packet *pkt.Packet, router *routing.Router, inSequencing *sequenc
 		return
 	}
 
-	logger.Debugf("LSA RECEIVED %v %d", packet.Header.SourceAddr, packet.Header.PktNum)
+	logger.Tracef("LSA RECEIVED %v %d", packet.Header.SourceAddr, packet.Header.PktNum)
 
 	srcAddr := netip.AddrFrom4(packet.Header.SourceAddr)
 	if srcAddr != srcAddrPort.Addr() {

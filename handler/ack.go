@@ -11,7 +11,7 @@ import (
 )
 
 func handleAck(packet *pkt.Packet, socket sock.Socket, outSequencing *sequencing.OutgoingPktNumHandler) {
-	logger.Debugf("ACK RECEIVED %v %d", packet.Header.SourceAddr, packet.Header.PktNum)
+	logger.Tracef("ACK RECEIVED %v %d", packet.Header.SourceAddr, packet.Header.PktNum)
 
 	destAddr := netip.AddrFrom4(packet.Header.DestAddr)
 	if destAddr != socket.MustGetLocalAddress().Addr() {
