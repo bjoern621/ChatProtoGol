@@ -131,6 +131,36 @@ func TestGetUnreachableHosts(t *testing.T) {
 			oldLSA:          LSAEntry{Neighbors: []netip.Addr{n1, n4, n5}},
 			expectedUnreach: []netip.Addr{},
 		},
+		{
+			name: "unreachable host that is not in LSDB is ignored",
+			lsdb: map[netip.Addr]LSAEntry{
+				// n1 <-> n2 <-> n3
+				n1: {Neighbors: []netip.Addr{n2}},
+				n2: {Neighbors: []netip.Addr{n1}}, // n2 drops n3
+				// N3 not received yet
+			},
+			routingTable: map[netip.Addr]netip.AddrPort{
+				n2: {},
+			},
+			notRoutable:     []netip.Addr{},
+			lsaOwner:        n2,
+			oldLSA:          LSAEntry{Neighbors: []netip.Addr{n1, n3}},
+			expectedUnreach: []netip.Addr{},
+		},
+		{
+			name: "BFS for unreachable hosts encounters neighbor not in LSDB ",
+			lsdb: map[netip.Addr]LSAEntry{
+				// n1 <-> n2 <-> n3
+				n1: {Neighbors: []netip.Addr{}},
+				n2: {Neighbors: []netip.Addr{n1, n3}},
+				// N3 not received yet
+			},
+			routingTable:    map[netip.Addr]netip.AddrPort{},
+			notRoutable:     []netip.Addr{n2},
+			lsaOwner:        n1,
+			oldLSA:          LSAEntry{Neighbors: []netip.Addr{n2}},
+			expectedUnreach: []netip.Addr{n2},
+		},
 	}
 
 	for _, tt := range tests {

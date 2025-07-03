@@ -78,12 +78,13 @@ func (r *Router) UpdateLSA(srcAddr netip.Addr, seqNum uint32, neighborAddresses 
 
 // getUnreachableHosts gets all hosts that are no longer reachable.
 // Unreachable hosts are those that are not routable anymore (but where previously), i.e., they are not in the routing table and are affected by the LSA update that caused this function to be called.
+// Unreachable hosts is always a subset of notRoutableHosts.
 // This function
 //  1. Checks if the LSA update removed a neighbor relationship.
 //  2. If so, it checks if the other host (lsaOwner's previous neighbor) is still reachable.
 //  3. If not, it collects all hosts that are not routable anymore and clears their state.
 //
-// This function is called after an LSA update that results in unreachable hosts.
+// This function is called after an LSA update.
 func (r *Router) getUnreachableHosts(notRoutableHosts []netip.Addr, lsaOwner netip.Addr, oldLSA LSAEntry) (unreachableHosts []netip.Addr) {
 	currentLSA, exists := r.lsdb[lsaOwner]
 	assert.Assert(exists, "LSA for %v not found in LSDB", lsaOwner)
@@ -112,7 +113,12 @@ func (r *Router) getUnreachableHosts(notRoutableHosts []netip.Addr, lsaOwner net
 	// BFS to find all unreachable hosts
 	unreachableHosts = make([]netip.Addr, 0, len(notRoutableHosts))
 
-	removedNeighborNeighbors := r.lsdb[removedNeighbor].Neighbors
+	removedNeighborLSA, ok := r.lsdb[removedNeighbor]
+	if !ok {
+		return nil // If the removed neighbor's LSA is not in the LSDB, it's not  considered unreachable
+	}
+
+	removedNeighborNeighbors := removedNeighborLSA.Neighbors
 	removedNeighborNeighbors = slices.DeleteFunc(removedNeighborNeighbors, func(addr netip.Addr) bool {
 		return addr == lsaOwner
 	})
@@ -121,6 +127,7 @@ func (r *Router) getUnreachableHosts(notRoutableHosts []netip.Addr, lsaOwner net
 	queue := []netip.Addr{}
 
 	visited[removedNeighbor] = true
+	assert.Assert(len(unreachableHosts) < len(notRoutableHosts), "Unreachable hosts slice should not exceed notRoutableHosts length")
 	unreachableHosts = append(unreachableHosts, removedNeighbor)
 
 	// Start BFS from all neighbors of the removed neighbor (excluding the lsaOwner)
@@ -135,17 +142,18 @@ func (r *Router) getUnreachableHosts(notRoutableHosts []netip.Addr, lsaOwner net
 			continue
 		}
 
+		lsa, ok := r.lsdb[node]
+		if !ok {
+			// If the node's LSA is not in the LSDB, it means we encountered this node only via a neighbor that has this node in it's LSA.
+			// We don't have this node's LSA, so we don't consider it unreachable.
+			continue
+		}
+
 		visited[node] = true
+		assert.Assert(len(unreachableHosts) < len(notRoutableHosts), "Unreachable hosts slice should not exceed notRoutableHosts length")
 		unreachableHosts = append(unreachableHosts, node)
 
 		// Enqueue neighbors of this node from LSDB
-		lsa, ok := r.lsdb[node]
-		assert.Assert(ok, "LSA for %v not found in LSDB during BFS in getUnreachableHosts()", node)
-		// if !ok {
-		// 	assert.Assert()
-		// 	continue
-		// }
-
 		for _, n := range lsa.Neighbors {
 			if !visited[n] {
 				queue = append(queue, n)
