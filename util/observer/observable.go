@@ -106,6 +106,20 @@ func (o *Observable[T]) NotifyObservers(data T) {
 	}
 }
 
+// NotifyObservers is similar to NotifyObservers but blocks until all subscribers have received the data.
+func (o *Observable[T]) NotifyObserversBlock(data T) {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+
+	if o.closed {
+		return
+	}
+
+	for ch := range o.observers {
+		ch <- data
+	}
+}
+
 // ClearAllSubscribers removes all subscribers and closes their respective channels.
 // Example: myObservable.ClearAllSubscribers() will remove and close all subscriber channels.
 func (o *Observable[T]) ClearAllSubscribers() {
