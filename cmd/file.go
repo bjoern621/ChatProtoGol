@@ -106,8 +106,9 @@ func sendFileChunks(peerIP netip.Addr, filePath string, blocker *sequencing.Sequ
 	payload := []byte(lastChunkPktNum[:])
 	packet := connection.BuildSequencedPacket(pkt.MsgTypeFinish, payload, peerIP)
 
+	ackChan := outSequencing.SubscribeToReceivedAck(packet)
 	go func() {
-		<-outSequencing.SubscribeToReceivedAck(packet)
+		<-ackChan
 		// We ignore the success of the ACK to avoid blocking the send process. The receiver might not be ready for a new message but we don't care.
 	}()
 
