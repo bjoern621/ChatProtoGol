@@ -15,8 +15,6 @@ import (
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
 
-var retryDelay = time.Millisecond * 200 // delay after sender window overflow before sending the next packet
-
 func HandleSendFile(args []string) {
 	if len(args) < 2 {
 		println("Usage: file <IPv4 address> <file path>")
@@ -94,7 +92,7 @@ func sendFileChunks(peerIP netip.Addr, filePath string, blocker *sequencing.Sequ
 
 		err = connection.SendReliableRoutedPacket(packet)
 		for err != nil {
-			time.Sleep(retryDelay)
+			time.Sleep(common.FILE_TRANSFER_RETRY_DELAY)
 			logger.Warnf("Failed to send file chunk %v to %s, retrying: %v\n", packet.Header.PktNum, peerIP, err) // TODO make debugf
 			err = connection.SendReliableRoutedPacket(packet)
 		}
