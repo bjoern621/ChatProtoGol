@@ -11,7 +11,7 @@ import (
 // Usage: loglevel [NONE|WARN|INFO|DEBUG]
 func HandleLogLevel(args []string) {
 	if len(args) > 1 {
-		logger.Warnf("Usage: loglvl [NONE|WARN|INFO|DEBUG]")
+		fmt.Println("Usage: loglvl [NONE|WARN|INFO|DEBUG]")
 		return
 	}
 
@@ -29,7 +29,7 @@ func HandleLogLevel(args []string) {
 		case "DEBUG":
 			level = logger.Debug
 		default:
-			logger.Warnf("Invalid log level: %s", levelStr)
+			fmt.Printf("Invalid log level: %s\n", levelStr)
 			return
 		}
 		logger.SetLogLevel(level)
