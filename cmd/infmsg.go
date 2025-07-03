@@ -10,11 +10,22 @@ import (
 )
 
 var running bool
+var lastChunkPktNum [4]byte
+var peerIP netip.Addr
 
 // HandleInfiniteMsg sends an infinite stream of messages to the specified IPv4 address.
 func HandleInfiniteMsg(args []string) {
 	if running {
 		running = false
+
+		payload := []byte(lastChunkPktNum[:])
+		packet := connection.BuildSequencedPacket(pkt.MsgTypeFinish, payload, peerIP)
+
+		err := connection.SendReliableRoutedPacket(packet)
+		if err != nil {
+			fmt.Printf("Failed to send finish message to %s: %v\n", peerIP, err)
+		}
+
 		fmt.Println("Infinite message sending stopped.")
 		return
 	}
@@ -44,10 +55,10 @@ func sendLoop(peerIP netip.Addr) {
 		for running {
 			err := connection.SendReliableRoutedPacket(packet)
 			if err == nil {
+				lastChunkPktNum = packet.Header.PktNum
 				break // sent successfully, move to next packet
 			}
-			// Optionally log or sleep to avoid busy loop
-			fmt.Printf("Send failed for pktNum %v, retrying: %v\n", packet.Header.PktNum, err)
+
 			time.Sleep(100 * time.Millisecond)
 		}
 	}

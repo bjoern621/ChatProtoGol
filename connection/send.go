@@ -42,6 +42,7 @@ var msgTypeNames = map[byte]string{
 // SendReliableRoutedPacket sends a packet.
 // Reliable: Resends and timeouts are handled.
 // Routed: Uses the routing table to determine the next hop.
+// Errors if the destination address is not reachable, the sender window would be exceeded or sending fails.
 func SendReliableRoutedPacket(packet *pkt.Packet) error {
 	destinationIP := netip.AddrFrom4(packet.Header.DestAddr)
 

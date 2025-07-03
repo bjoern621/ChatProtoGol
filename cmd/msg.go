@@ -49,9 +49,10 @@ func HandleSend(args []string) {
 		lastChunkPktNum = packet.Header.PktNum
 
 		wg.Add(1)
+		ackChan := outSequencing.SubscribeToReceivedAck(packet)
 		go func() {
 			defer wg.Done()
-			<-outSequencing.SubscribeToReceivedAck(packet)
+			<-ackChan
 			// We ignore the success of the ACK to avoid blocking the send process. The receiver might get a faulty message.
 		}()
 
@@ -71,8 +72,9 @@ func HandleSend(args []string) {
 		payload := []byte(lastChunkPktNum[:])
 		packet := connection.BuildSequencedPacket(pkt.MsgTypeFinish, payload, peerIP)
 
+		ackChan := outSequencing.SubscribeToReceivedAck(packet)
 		go func() {
-			<-outSequencing.SubscribeToReceivedAck(packet)
+			<-ackChan
 			// We ignore the success of the ACK to avoid blocking the send process. The receiver might not be ready for a new message but we don't care.
 			blocker.Unblock()
 		}()
