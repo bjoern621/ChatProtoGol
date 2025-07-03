@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/netip"
 
 	"bjoernblessin.de/chatprotogol/connection"
@@ -57,4 +58,6 @@ func handleConnect(packet *pkt.Packet, srcAddrPort netip.AddrPort, router *routi
 	if err != nil {
 		logger.Warnf("Failed to send database description to %s: %v", srcAddrPort, err)
 	}
+
+	fmt.Printf("Connected to %s\n", srcAddrPort)
 }
