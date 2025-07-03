@@ -19,14 +19,20 @@ func HandleListAcks(args []string) {
 	}
 
 	openAcks := outSequencing.GetOpenAcks()
+	senderWindows := outSequencing.GetSenderWindows()
 
-	if len(openAcks) == 0 {
-		fmt.Println("No open outgoing ACKs.")
+	if len(senderWindows) == 0 {
+		fmt.Println("No active peer connections with sender windows.")
 		return
 	}
 
 	fmt.Println("Open Outgoing ACKs:")
-	for peerAddr, pktNums := range openAcks {
-		fmt.Printf("  %s -> %v\n", peerAddr, pktNums)
+	for peerAddr, windowSize := range senderWindows {
+		pktNums, hasAcks := openAcks[peerAddr]
+		if !hasAcks {
+			// To make output cleaner, show an empty slice if no acks are open
+			pktNums = []uint32{}
+		}
+		fmt.Printf("  %s -> Window: %d, Open ACKs: %v\n", peerAddr, windowSize, pktNums)
 	}
 }

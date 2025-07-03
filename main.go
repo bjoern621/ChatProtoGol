@@ -7,6 +7,7 @@ import (
 
 	"bjoernblessin.de/chatprotogol/cmd"
 	"bjoernblessin.de/chatprotogol/cmd/inputreader"
+	"bjoernblessin.de/chatprotogol/common"
 	"bjoernblessin.de/chatprotogol/connection"
 	"bjoernblessin.de/chatprotogol/handler"
 	"bjoernblessin.de/chatprotogol/routing"
@@ -21,7 +22,7 @@ func main() {
 	udpSocket := sock.NewUDPSocket()
 
 	inSequencing := sequencing.NewIncomingPktNumHandler(udpSocket)
-	outSequencing := sequencing.NewOutgoingPktNumHandler()
+	outSequencing := sequencing.NewOutgoingPktNumHandler(common.INITIAL_SENDER_WINDOW)
 
 	router := routing.NewRouter(udpSocket)
 

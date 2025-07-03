@@ -27,15 +27,17 @@ type OutgoingPktNumHandler struct {
 	openAcks                     map[netip.Addr]map[uint32]*OpenAck
 	mu                           sync.Mutex
 	highestAckedContiguousPktNum map[netip.Addr]int64 // Maps a host address to the highest packet number that has been acknowledged for that host.
-	senderWindow                 int64
+	senderWindow                 map[netip.Addr]int64
+	intialSenderWindow           int64
 }
 
-func NewOutgoingPktNumHandler() *OutgoingPktNumHandler {
+func NewOutgoingPktNumHandler(intialWindow int64) *OutgoingPktNumHandler {
 	return &OutgoingPktNumHandler{
 		packetNumbers:                make(map[netip.Addr]uint32),
 		openAcks:                     make(map[netip.Addr]map[uint32]*OpenAck),
 		highestAckedContiguousPktNum: make(map[netip.Addr]int64),
-		senderWindow:                 common.SENDER_WINDOW,
+		senderWindow:                 make(map[netip.Addr]int64),
+		intialSenderWindow:           intialWindow,
 	}
 }
 
@@ -102,7 +104,12 @@ func (h *OutgoingPktNumHandler) AddOpenAck(packet *pkt.Packet, resendFunc func()
 		h.highestAckedContiguousPktNum[addr] = highestAcked
 	}
 
-	if pktNum64-highestAcked > h.senderWindow {
+	senderWindow, ok := h.senderWindow[addr]
+	if !ok {
+		senderWindow = h.intialSenderWindow
+		h.senderWindow[addr] = senderWindow
+	}
+	if pktNum64-highestAcked > senderWindow {
 		return errors.New("Packet number exceeds sender window")
 	}
 
@@ -110,7 +117,7 @@ func (h *OutgoingPktNumHandler) AddOpenAck(packet *pkt.Packet, resendFunc func()
 
 	assert.Assert(openAck.timer == nil, "Open acknowledgment for host %s with packet number %v already exists", addr, pktNum)
 
-	openAck.timer = time.AfterFunc(time.Second*common.ACK_TIMEOUT_SECONDS, func() { h.handleAckTimeout(addr, pktNum, resendFunc) })
+	openAck.timer = time.AfterFunc(common.ACK_TIMEOUT_DURATION, func() { h.handleAckTimeout(addr, pktNum, resendFunc) })
 
 	return nil
 }
@@ -149,16 +156,19 @@ func (h *OutgoingPktNumHandler) handleAckTimeout(addr netip.Addr, pktNum [4]byte
 
 	logger.Debugf("ACK timeout for host %s with packet number %v\n", addr, pktNum)
 
+	// Multiplicative decrease sender window
+	h.senderWindow[addr] = max(h.senderWindow[addr]/2, 1)
+
 	resendFunc()
 
 	openAck.retries--
-	if openAck.retries <= 0 {
+	if openAck.retries == 0 {
 		logger.Warnf("Removing open acknowledgment for host %s with packet number %v after retries exhausted\n", addr, pktNum)
 		h.removeOpenAck(addr, pktNum, false)
 		return
 	}
 
-	openAck.timer.Reset(time.Second * common.ACK_TIMEOUT_SECONDS)
+	openAck.timer.Reset(common.ACK_TIMEOUT_DURATION)
 }
 
 // RemoveOpenAck removes a packet from the open acknowledgments and notifies all observers that an ACK was received.
@@ -169,17 +179,21 @@ func (h *OutgoingPktNumHandler) RemoveOpenAck(addr netip.Addr, pktNum [4]byte) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
+	_, exists := h.openAcks[addr][binary.BigEndian.Uint32(pktNum[:])]
+	if !exists {
+		return
+	}
+
 	h.removeOpenAck(addr, pktNum, true)
 }
 
+// removeOpenAck removes a packet from the open acknowledgments and notifies all observers that an ACK was received or not received.
+// If the packet number does not exist, it panics.
 func (h *OutgoingPktNumHandler) removeOpenAck(addr netip.Addr, pktNum [4]byte, ackReceived bool) {
 	pktNum32 := binary.BigEndian.Uint32(pktNum[:])
 
 	openAck, exists := h.openAcks[addr][pktNum32]
-	if !exists {
-		logger.Warnf("Tried to remove open acknowledgment for host %s with packet number %v, but it does not exist", addr, pktNum)
-		return
-	}
+	assert.Assert(exists, "Open acknowledgment for host %s with packet number %v does not exist", addr, pktNum)
 
 	// ack.timer == nil is an undesired state that shouldn't be possible at best, but it may happen if we called SubscribeToReceivedAck() but never AddOpenAck()
 	if openAck.timer != nil {
@@ -212,6 +226,11 @@ func (h *OutgoingPktNumHandler) removeOpenAck(addr netip.Addr, pktNum [4]byte, a
 		}
 
 		h.highestAckedContiguousPktNum[addr]++
+	}
+
+	// Additive increase sender window
+	if ackReceived {
+		h.senderWindow[addr] = h.senderWindow[addr] + 1
 	}
 }
 
@@ -253,4 +272,18 @@ func (h *OutgoingPktNumHandler) GetOpenAcks() map[netip.Addr][]uint32 {
 		}
 	}
 	return result
+}
+
+// GetSenderWindows returns a map of peers to their current sender window size.
+// This is thread-safe.
+func (h *OutgoingPktNumHandler) GetSenderWindows() map[netip.Addr]int64 {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	// Return a copy to prevent race conditions on the original map
+	windowsCopy := make(map[netip.Addr]int64, len(h.senderWindow))
+	for addr, size := range h.senderWindow {
+		windowsCopy[addr] = size
+	}
+	return windowsCopy
 }

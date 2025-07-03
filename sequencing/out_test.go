@@ -22,8 +22,7 @@ func makePkt(num uint32, dest netip.Addr) *pkt.Packet {
 func TestSenderWindowBlocks(t *testing.T) {
 	window := int64(3)
 
-	out := NewOutgoingPktNumHandler()
-	out.senderWindow = window
+	out := NewOutgoingPktNumHandler(window)
 	dest, _ := netip.ParseAddr("10.0.0.1")
 
 	// Cannot send too far ahead packet
