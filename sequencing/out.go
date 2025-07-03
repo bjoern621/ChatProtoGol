@@ -156,8 +156,8 @@ func (h *OutgoingPktNumHandler) handleAckTimeout(addr netip.Addr, pktNum [4]byte
 
 	logger.Debugf("ACK timeout for host %s with packet number %v\n", addr, pktNum)
 
-	// Multiplicative decrease sender window
-	h.senderWindow[addr] = max(h.senderWindow[addr]/2, 1)
+	// (Multiplicative) decrease sender window
+	h.senderWindow[addr] = max(h.senderWindow[addr]-2, 1)
 
 	resendFunc()
 
