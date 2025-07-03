@@ -13,6 +13,7 @@ import (
 	"bjoernblessin.de/chatprotogol/pkt"
 	"bjoernblessin.de/chatprotogol/sequencing"
 	"bjoernblessin.de/chatprotogol/util/logger"
+	"github.com/schollz/progressbar/v3"
 )
 
 func HandleSendFile(args []string) {
@@ -66,6 +67,21 @@ func sendFileChunks(peerIP netip.Addr, filePath string, blocker *sequencing.Sequ
 	}
 	defer file.Close()
 
+	fileInfo, err := file.Stat()
+	if err != nil {
+		fmt.Printf("Failed to get file info for %s: %v\n", filePath, err)
+		return
+	}
+
+	bar := progressbar.NewOptions(int(fileInfo.Size()),
+		progressbar.OptionSetDescription(fmt.Sprintf("Sending %s", fileInfo.Name())),
+		progressbar.OptionShowBytes(true),
+		progressbar.OptionThrottle(65*time.Millisecond),
+		progressbar.OptionOnCompletion(func() {
+			fmt.Printf("\n")
+		}),
+	)
+
 	wg := &sync.WaitGroup{}
 	var lastChunkPktNum [4]byte
 
@@ -80,6 +96,8 @@ func sendFileChunks(peerIP netip.Addr, filePath string, blocker *sequencing.Sequ
 			fmt.Printf("Failed to read file %s: %v\n", file.Name(), err)
 		}
 
+		bar.Add(n)
+
 		packet := connection.BuildSequencedPacket(pkt.MsgTypeFileTransfer, buffer[:n], peerIP)
 
 		wg.Add(1)
@@ -93,7 +111,7 @@ func sendFileChunks(peerIP netip.Addr, filePath string, blocker *sequencing.Sequ
 		err = connection.SendReliableRoutedPacket(packet)
 		for err != nil {
 			time.Sleep(common.FILE_TRANSFER_RETRY_DELAY)
-			logger.Warnf("Failed to send file chunk %v to %s, retrying: %v\n", packet.Header.PktNum, peerIP, err) // TODO make debugf
+			logger.Debugf("Failed to send file chunk %v to %s, retrying: %v", packet.Header.PktNum, peerIP, err)
 			err = connection.SendReliableRoutedPacket(packet)
 		}
 

@@ -147,7 +147,7 @@ func (h *OutgoingPktNumHandler) handleAckTimeout(addr netip.Addr, pktNum [4]byte
 		return // The open acknowledgment has been removed already, no need to handle the timeout // TODO this seems to happen but if it happens, is returning the right thing?
 	}
 
-	logger.Warnf("ACK timeout for host %s with packet number %v\n", addr, pktNum)
+	logger.Debugf("ACK timeout for host %s with packet number %v\n", addr, pktNum)
 
 	resendFunc()
 
