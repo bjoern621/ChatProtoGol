@@ -101,7 +101,7 @@ func (o *Observable[T]) NotifyObservers(data T) {
 		case ch <- data:
 		default:
 			// Subscriber channel is full or closed, skip sending to this one
-			logger.Warnf("Observable[%T](%p): Subscriber channel is full or closed, skipping notification", data, o)
+			logger.Debugf("Observable[%T](%p): Subscriber channel is full or closed, skipping notification", data, o)
 		}
 	}
 }
