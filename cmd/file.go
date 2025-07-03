@@ -104,6 +104,7 @@ func sendFileChunks(peerIP netip.Addr, filePath string, blocker *sequencing.Sequ
 			defer wg.Done()
 			<-ackChan
 			// We ignore the success of the ACK to avoid blocking the send process. The receiver might get a faulty file.
+			bar.Add(n)
 		}()
 
 		err = connection.SendReliableRoutedPacket(packet)
@@ -112,8 +113,6 @@ func sendFileChunks(peerIP netip.Addr, filePath string, blocker *sequencing.Sequ
 			logger.Debugf("Failed to send file chunk %v to %s, retrying: %v", packet.Header.PktNum, peerIP, err)
 			err = connection.SendReliableRoutedPacket(packet)
 		}
-
-		bar.Add(n)
 
 		lastChunkPktNum = packet.Header.PktNum
 	}
