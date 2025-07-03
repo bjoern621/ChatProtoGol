@@ -96,8 +96,6 @@ func sendFileChunks(peerIP netip.Addr, filePath string, blocker *sequencing.Sequ
 			fmt.Printf("Failed to read file %s: %v\n", file.Name(), err)
 		}
 
-		bar.Add(n)
-
 		packet := connection.BuildSequencedPacket(pkt.MsgTypeFileTransfer, buffer[:n], peerIP)
 
 		wg.Add(1)
@@ -114,6 +112,8 @@ func sendFileChunks(peerIP netip.Addr, filePath string, blocker *sequencing.Sequ
 			logger.Debugf("Failed to send file chunk %v to %s, retrying: %v", packet.Header.PktNum, peerIP, err)
 			err = connection.SendReliableRoutedPacket(packet)
 		}
+
+		bar.Add(n)
 
 		lastChunkPktNum = packet.Header.PktNum
 	}
