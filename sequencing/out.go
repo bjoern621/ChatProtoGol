@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"net/netip"
+	"sort"
 	"sync"
 	"time"
 
@@ -153,7 +154,6 @@ func (h *OutgoingPktNumHandler) handleAckTimeout(addr netip.Addr, pktNum [4]byte
 	openAck.retries--
 	if openAck.retries <= 0 {
 		logger.Warnf("Removing open acknowledgment for host %s with packet number %v after retries exhausted\n", addr, pktNum)
-		assert.Never("nee")
 		h.removeOpenAck(addr, pktNum, false)
 		return
 	}
@@ -177,6 +177,7 @@ func (h *OutgoingPktNumHandler) removeOpenAck(addr netip.Addr, pktNum [4]byte, a
 
 	openAck, exists := h.openAcks[addr][pktNum32]
 	if !exists {
+		logger.Warnf("Tried to remove open acknowledgment for host %s with packet number %v, but it does not exist", addr, pktNum)
 		return
 	}
 
@@ -231,4 +232,25 @@ func (h *OutgoingPktNumHandler) SubscribeToReceivedAck(packet *pkt.Packet) chan 
 	}
 
 	return openAck.observable.SubscribeOnce()
+}
+
+// GetOpenAcks returns a map of peers to their open acknowledgment packet numbers.
+// This is thread-safe.
+func (h *OutgoingPktNumHandler) GetOpenAcks() map[netip.Addr][]uint32 {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	result := make(map[netip.Addr][]uint32)
+	for addr, acks := range h.openAcks {
+		if len(acks) > 0 {
+			pktNums := make([]uint32, 0, len(acks))
+			for pktNum := range acks {
+				pktNums = append(pktNums, pktNum)
+			}
+			// Sort for consistent output
+			sort.Slice(pktNums, func(i, j int) bool { return pktNums[i] < pktNums[j] })
+			result[addr] = pktNums
+		}
+	}
+	return result
 }

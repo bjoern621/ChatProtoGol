@@ -39,6 +39,7 @@ func main() {
 	reader.AddHandler("lsdb", cmd.HandleListDatabase)
 	reader.AddHandler("infmsg", cmd.HandleInfiniteMsg)
 	reader.AddHandler("i", cmd.HandleInit)
+	reader.AddHandler("acks", cmd.HandleListAcks)
 
 	handler := handler.NewPacketHandler(udpSocket, router, inSequencing, outSequencing)
 	go handler.ListenToPackets()
