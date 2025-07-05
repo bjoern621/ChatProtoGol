@@ -3,6 +3,7 @@ package sequencing
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math"
 	"net/netip"
 	"sort"
@@ -120,7 +121,11 @@ func (h *OutgoingPktNumHandler) AddOpenAck(packet *pkt.Packet, resendFunc func()
 		h.cwnd[addr] = cwnd
 	}
 	if pktNum64-highestAcked > cwnd {
-		return nil, errors.New("Packet number exceeds congestion window")
+		return nil, errors.New("Packet number " +
+			fmt.Sprint(pktNum64) +
+			" exceeds congestion window, [" +
+			fmt.Sprint(highestAcked) + ", " +
+			fmt.Sprint(highestAcked+cwnd) + "]")
 	}
 
 	openAck := h.createOpenAck(addr, pktNum)
