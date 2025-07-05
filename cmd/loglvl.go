@@ -28,6 +28,8 @@ func HandleLogLevel(args []string) {
 			level = logger.Info
 		case "DEBUG":
 			level = logger.Debug
+		case "TRACE":
+			level = logger.Trace
 		default:
 			fmt.Printf("Invalid log level: %s\n", levelStr)
 			return
