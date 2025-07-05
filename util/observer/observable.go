@@ -10,7 +10,6 @@ import (
 type Observable[T any] struct {
 	observers  map[chan T]struct{}
 	mu         sync.RWMutex
-	closed     bool
 	bufferSize int
 }
 
@@ -33,42 +32,30 @@ func (o *Observable[T]) Subscribe() chan T {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	if o.closed {
-		ch := make(chan T)
-		close(ch)
-		return ch
-	}
-
 	ch := make(chan T, o.bufferSize)
 	o.observers[ch] = struct{}{}
 	return ch
 }
 
 // SubscribeOnce adds a subscriber that will receive only one notification.
-// After the first notification is sent to the returned channel, the subscription is automatically removed and the channel is closed.
-// Example: oneTimeChannel := myObservable.SubscribeOnce() will return a channel that receives one notification and then closes.
+// The returned channel will receive exactly one value and then be closed.
+// The subscription will be automatically cleaned up.
+// Example: oneTimeChannel := myObservable.SubscribeOnce() will return a channel that receives one notification.
 func (o *Observable[T]) SubscribeOnce() chan T {
-	o.mu.Lock()
-	defer o.mu.Unlock()
+	onceChan := make(chan T, 1)
 
-	if o.closed {
-		ch := make(chan T)
-		close(ch)
-		return ch
-	}
-
-	ch := make(chan T, 1)
-	o.observers[ch] = struct{}{}
-
+	ch := o.Subscribe()
 	go func() {
-		// Wait for one message or for the channel to be closed by Unsubscribe/Close
-		_, ok := <-ch
-		if ok {
-			o.Unsubscribe(ch) // Unsubscribe after receiving the message, if it was not closed already
+		defer close(onceChan)
+
+		if data, ok := <-ch; ok {
+			onceChan <- data
 		}
+
+		o.Unsubscribe(ch)
 	}()
 
-	return ch
+	return onceChan
 }
 
 // Unsubscribe removes a subscriber channel.
@@ -92,10 +79,6 @@ func (o *Observable[T]) NotifyObservers(data T) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
-	if o.closed {
-		return
-	}
-
 	for ch := range o.observers {
 		select {
 		case ch <- data:
@@ -111,10 +94,6 @@ func (o *Observable[T]) NotifyObserversBlock(data T) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
-	if o.closed {
-		return
-	}
-
 	for ch := range o.observers {
 		ch <- data
 	}
@@ -126,23 +105,6 @@ func (o *Observable[T]) ClearAllSubscribers() {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	for ch := range o.observers {
-		delete(o.observers, ch)
-		close(ch)
-	}
-}
-
-// Close closes the observable, unsubscribes all current subscribers, and prevents new subscriptions.
-// Example: myObservable.Close() will shut down the observable.
-func (o *Observable[T]) Close() {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-
-	if o.closed {
-		return
-	}
-
-	o.closed = true
 	for ch := range o.observers {
 		delete(o.observers, ch)
 		close(ch)
