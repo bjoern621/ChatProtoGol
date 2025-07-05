@@ -63,20 +63,20 @@ func connect(ipv4String string, portString string) {
 
 	packet := connection.BuildSequencedPacket(pkt.MsgTypeConnect, nil, addr)
 
+	ackChan, err := connection.SendReliablePacketTo(addrPort, packet)
+	if err != nil {
+		fmt.Printf("Failed to send connect message: %v\n", err)
+		return
+	}
+
 	go func() {
-		success := <-outSequencing.SubscribeToReceivedAck(packet)
+		success := <-ackChan
 		if success {
 			handleConnectAck(addrPort, socket)
 		} else {
 			logger.Warnf("Acknowledgment for connection request to %s:%d was not received", addr, port)
 		}
 	}()
-
-	err = connection.SendReliablePacketTo(addrPort, packet)
-	if err != nil {
-		fmt.Printf("Failed to send connect message: %v\n", err)
-		return
-	}
 }
 
 func printUsage() {

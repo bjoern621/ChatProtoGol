@@ -41,7 +41,7 @@ func HandleSendFile(args []string) {
 	}
 
 	packet := connection.BuildSequencedPacket(pkt.MsgTypeFileTransfer, []byte(fileInfo.Name()), peerIP)
-	err = connection.SendReliableRoutedPacket(packet)
+	_, err = connection.SendReliableRoutedPacket(packet)
 	if err != nil {
 		logger.Warnf("Failed to send metadata packet to %s: %v, cancelling file transfer\n", peerIP, err)
 		return
@@ -82,7 +82,7 @@ func sendFileChunks(peerIP netip.Addr, filePath string, blocker *sequencing.Sequ
 		}),
 	)
 
-	wg := &sync.WaitGroup{}
+	wg := &sync.WaitGroup{} // Used to wait for file chuck ACKs and the FIN message ACK
 	var lastChunkPktNum [4]byte
 
 	buffer := make([]byte, common.MAX_PAYLOAD_SIZE_BYTES)
@@ -98,21 +98,20 @@ func sendFileChunks(peerIP netip.Addr, filePath string, blocker *sequencing.Sequ
 
 		packet := connection.BuildSequencedPacket(pkt.MsgTypeFileTransfer, buffer[:n], peerIP)
 
+		ackChan, err := connection.SendReliableRoutedPacket(packet)
+		for err != nil {
+			time.Sleep(common.FILE_TRANSFER_RETRY_DELAY)
+			logger.Debugf("Failed to send file chunk %v to %s, retrying: %v", packet.Header.PktNum, peerIP, err)
+			ackChan, err = connection.SendReliableRoutedPacket(packet)
+		}
+
 		wg.Add(1)
-		ackChan := outSequencing.SubscribeToReceivedAck(packet)
 		go func() {
 			defer wg.Done()
 			<-ackChan
 			// We ignore the success of the ACK to avoid blocking the send process. The receiver might get a faulty file.
 			bar.Add(n)
 		}()
-
-		err = connection.SendReliableRoutedPacket(packet)
-		for err != nil {
-			time.Sleep(common.FILE_TRANSFER_RETRY_DELAY)
-			logger.Debugf("Failed to send file chunk %v to %s, retrying: %v", packet.Header.PktNum, peerIP, err)
-			err = connection.SendReliableRoutedPacket(packet)
-		}
 
 		lastChunkPktNum = packet.Header.PktNum
 	}
@@ -123,15 +122,16 @@ func sendFileChunks(peerIP netip.Addr, filePath string, blocker *sequencing.Sequ
 	payload := []byte(lastChunkPktNum[:])
 	packet := connection.BuildSequencedPacket(pkt.MsgTypeFinish, payload, peerIP)
 
-	ackChan := outSequencing.SubscribeToReceivedAck(packet)
+	ackChan, err := connection.SendReliableRoutedPacket(packet)
+	for err != nil {
+		time.Sleep(common.FILE_TRANSFER_RETRY_DELAY)
+		logger.Debugf("Failed to send finish message to %s: %v\n", peerIP, err)
+		ackChan, err = connection.SendReliableRoutedPacket(packet)
+	}
+
+	wg.Add(1)
 	go func() {
 		<-ackChan
 		// We ignore the success of the ACK to avoid blocking the send process. The receiver might not be ready for a new message but we don't care.
 	}()
-
-	err = connection.SendReliableRoutedPacket(packet)
-	if err != nil {
-		logger.Warnf("Failed to send finish message to %s: %v\n", peerIP, err)
-		return
-	}
 }

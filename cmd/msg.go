@@ -48,19 +48,18 @@ func HandleSend(args []string) {
 
 		lastChunkPktNum = packet.Header.PktNum
 
+		ackChan, err := connection.SendReliableRoutedPacket(packet)
+		if err != nil {
+			logger.Warnf("Failed to send message to %s: %v\n", peerIP, err)
+			// Don't return, send the remaining chunks anyway.
+		}
+
 		wg.Add(1)
-		ackChan := outSequencing.SubscribeToReceivedAck(packet)
 		go func() {
 			defer wg.Done()
 			<-ackChan
 			// We ignore the success of the ACK to avoid blocking the send process. The receiver might get a faulty message.
 		}()
-
-		err := connection.SendReliableRoutedPacket(packet)
-		if err != nil {
-			logger.Warnf("Failed to send message to %s: %v\n", peerIP, err)
-			// Don't return, send the remaining chunks anyway.
-		}
 
 		start = end
 	}
@@ -72,17 +71,16 @@ func HandleSend(args []string) {
 		payload := []byte(lastChunkPktNum[:])
 		packet := connection.BuildSequencedPacket(pkt.MsgTypeFinish, payload, peerIP)
 
-		ackChan := outSequencing.SubscribeToReceivedAck(packet)
+		ackChan, err := connection.SendReliableRoutedPacket(packet)
+		if err != nil {
+			logger.Warnf("Failed to send finish message to %s: %v\n", peerIP, err)
+			return
+		}
+
 		go func() {
 			<-ackChan
 			// We ignore the success of the ACK to avoid blocking the send process. The receiver might not be ready for a new message but we don't care.
 			blocker.Unblock()
 		}()
-
-		err := connection.SendReliableRoutedPacket(packet)
-		if err != nil {
-			logger.Warnf("Failed to send finish message to %s: %v\n", peerIP, err)
-			return
-		}
 	}()
 }

@@ -50,8 +50,13 @@ func disconnectFrom(addr netip.Addr) (<-chan bool, error) {
 
 	packet := connection.BuildSequencedPacket(pkt.MsgTypeDisconnect, nil, addr)
 
+	ackChan, err := connection.SendReliableRoutedPacket(packet)
+	if err != nil {
+		return nil, err
+	}
+
 	go func() {
-		success := <-outSequencing.SubscribeToReceivedAck(packet)
+		success := <-ackChan
 
 		unreachableHosts := router.RemoveNeighbor(addr)
 		connection.ClearUnreachableHosts(unreachableHosts)
@@ -63,11 +68,6 @@ func disconnectFrom(addr netip.Addr) (<-chan bool, error) {
 
 		doneChan <- success
 	}()
-
-	err := connection.SendReliableRoutedPacket(packet)
-	if err != nil {
-		return nil, err
-	}
 
 	return doneChan, nil
 }

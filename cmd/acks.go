@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
@@ -19,20 +20,27 @@ func HandleListAcks(args []string) {
 	}
 
 	openAcks := outSequencing.GetOpenAcks()
-	senderWindows := outSequencing.GetSenderWindows()
+	congestionWindows := outSequencing.GetCongestionWindows()
+	thresholds := outSequencing.GetSlowStartThresholds()
 
-	if len(senderWindows) == 0 {
-		fmt.Println("No active peer connections with sender windows.")
+	if len(congestionWindows) == 0 {
+		fmt.Println("No active peer connections.")
 		return
 	}
 
-	fmt.Println("Open Outgoing ACKs:")
-	for peerAddr, windowSize := range senderWindows {
-		pktNums, hasAcks := openAcks[peerAddr]
-		if !hasAcks {
-			// To make output cleaner, show an empty slice if no acks are open
-			pktNums = []uint32{}
+	fmt.Println("Congestion Control Status:")
+	for peerAddr, windowSize := range congestionWindows {
+		ackInfos, hasAcks := openAcks[peerAddr]
+		var ackStrings []string
+		if hasAcks {
+			for _, ack := range ackInfos {
+				ackStrings = append(ackStrings, fmt.Sprintf("%d(timer: %s)", ack.PktNum, ack.TimerStatus))
+			}
 		}
-		fmt.Printf("  %s -> Window: %d, Open ACKs: %v\n", peerAddr, windowSize, pktNums)
+
+		// Get the threshold, defaulting to 0 if not yet set for the peer
+		threshold := thresholds[peerAddr]
+
+		fmt.Printf("  %s -> Cwnd: %d, ssthresh: %d, Open ACKs: [%s]\n", peerAddr, windowSize, threshold, strings.Join(ackStrings, ", "))
 	}
 }

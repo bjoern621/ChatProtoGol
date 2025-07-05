@@ -43,15 +43,15 @@ var msgTypeNames = map[byte]string{
 // Reliable: Resends and timeouts are handled.
 // Routed: Uses the routing table to determine the next hop.
 // Errors if the destination address is not reachable, the sender window would be exceeded or sending fails.
-func SendReliableRoutedPacket(packet *pkt.Packet) error {
+func SendReliableRoutedPacket(packet *pkt.Packet) (chan bool, error) {
 	destinationIP := netip.AddrFrom4(packet.Header.DestAddr)
 
 	nextHop, found := router.GetNextHop(destinationIP)
 	if !found {
-		return errors.New("no next hop found for the destination address")
+		return nil, errors.New("no next hop found for the destination address")
 	}
 
-	err := outgoingSequencing.AddOpenAck(packet, func() {
+	ackChan, err := outgoingSequencing.AddOpenAck(packet, func() {
 		nextHop, found := router.GetNextHop(destinationIP) // Get the current next hop again (it may have changed)
 		if !found {
 			logger.Infof("Host %s is no longer reachable, removing open acknowledgment for packet number %v", destinationIP, packet.Header.PktNum)
@@ -61,34 +61,34 @@ func SendReliableRoutedPacket(packet *pkt.Packet) error {
 		_ = sendPacketTo(nextHop, packet)
 	})
 	if err != nil {
-		return errors.New("failed to add open acknowledgment: " + err.Error())
+		return nil, errors.New("failed to add open acknowledgment: " + err.Error())
 	}
 
 	err = sendPacketTo(nextHop, packet)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return ackChan, nil
 }
 
 // SendReliablePacketTo sends a packet.
 // Reliable: Resends and timeouts are handled.
 // To: Send the packet to a specific address and port.
-func SendReliablePacketTo(addrPort netip.AddrPort, packet *pkt.Packet) error {
-	err := outgoingSequencing.AddOpenAck(packet, func() {
+func SendReliablePacketTo(addrPort netip.AddrPort, packet *pkt.Packet) (chan bool, error) {
+	ackChan, err := outgoingSequencing.AddOpenAck(packet, func() {
 		_ = sendPacketTo(addrPort, packet)
 	})
 	if err != nil {
-		return errors.New("failed to add open acknowledgment: " + err.Error())
+		return nil, errors.New("failed to add open acknowledgment: " + err.Error())
 	}
 
 	err = sendPacketTo(addrPort, packet)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return ackChan, nil
 }
 
 // sendPacketTo sends a packet to an AddrPort.
@@ -186,7 +186,7 @@ func FloodLSA(lsaOwner netip.Addr, lsa routing.LSAEntry, exceptAddrs ...netip.Ad
 
 		packet := BuildSequencedPacket(pkt.MsgTypeLSA, payload, destAddr)
 
-		err := SendReliablePacketTo(destAddrPort, packet)
+		_, err := SendReliablePacketTo(destAddrPort, packet)
 		if err != nil {
 			logger.Warnf("Failed to send LSA for %s: %v", destAddr, err)
 		}
@@ -204,7 +204,8 @@ func SendDD(destAddrPort netip.AddrPort) error {
 
 	packet := BuildSequencedPacket(pkt.MsgTypeDD, payload, destAddrPort.Addr())
 
-	return SendReliablePacketTo(destAddrPort, packet)
+	_, err := SendReliablePacketTo(destAddrPort, packet)
+	return err
 }
 
 // ForwardRouted forwards a packet to the destination address defined in the packet header.

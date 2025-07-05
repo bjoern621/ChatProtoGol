@@ -3,6 +3,7 @@ package sequencing
 import (
 	"encoding/binary"
 	"errors"
+	"math"
 	"net/netip"
 	"sort"
 	"sync"
@@ -14,6 +15,8 @@ import (
 	"bjoernblessin.de/chatprotogol/util/logger"
 	"bjoernblessin.de/chatprotogol/util/observer"
 )
+
+const INITIAL_CWND = 10
 
 // OpenAck represents an open acknowledgment for a specific addr and packet number.
 type OpenAck struct {
@@ -27,8 +30,11 @@ type OutgoingPktNumHandler struct {
 	openAcks                     map[netip.Addr]map[uint32]*OpenAck
 	mu                           sync.Mutex
 	highestAckedContiguousPktNum map[netip.Addr]int64 // Maps a host address to the highest packet number that has been acknowledged for that host.
-	senderWindow                 map[netip.Addr]int64
+	cwnd                         map[netip.Addr]int64
 	intialSenderWindow           int64
+	ssthresh                     map[netip.Addr]int64
+	cAvoidanceAcc                map[netip.Addr]int64     // Used to count the number of packets acked in congestion avoidance phase
+	lastCongestionEventTime      map[netip.Addr]time.Time // Timestamp of the last congestion event
 }
 
 func NewOutgoingPktNumHandler(intialWindow int64) *OutgoingPktNumHandler {
@@ -36,8 +42,11 @@ func NewOutgoingPktNumHandler(intialWindow int64) *OutgoingPktNumHandler {
 		packetNumbers:                make(map[netip.Addr]uint32),
 		openAcks:                     make(map[netip.Addr]map[uint32]*OpenAck),
 		highestAckedContiguousPktNum: make(map[netip.Addr]int64),
-		senderWindow:                 make(map[netip.Addr]int64),
+		cwnd:                         make(map[netip.Addr]int64),
 		intialSenderWindow:           intialWindow,
+		ssthresh:                     make(map[netip.Addr]int64),
+		cAvoidanceAcc:                make(map[netip.Addr]int64),
+		lastCongestionEventTime:      make(map[netip.Addr]time.Time),
 	}
 }
 
@@ -89,11 +98,15 @@ func (h *OutgoingPktNumHandler) GetNextpacketNumber(addr netip.Addr) [4]byte {
 // After the timeout, it will call the provided resend function to resend the packet.
 // Can be called concurrently.
 // Should only be called once per packet.
-func (h *OutgoingPktNumHandler) AddOpenAck(packet *pkt.Packet, resendFunc func()) error {
+func (h *OutgoingPktNumHandler) AddOpenAck(packet *pkt.Packet, resendFunc func()) (chan bool, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
 	addr := netip.AddrFrom4(packet.Header.DestAddr)
+
+	_, exists := h.openAcks[addr]
+	assert.Assert(!exists, "Open acknowledgment for host %s already exists", addr)
+
 	pktNum := packet.Header.PktNum
 
 	pktNum64 := int64(binary.BigEndian.Uint32(pktNum[:]))
@@ -104,13 +117,13 @@ func (h *OutgoingPktNumHandler) AddOpenAck(packet *pkt.Packet, resendFunc func()
 		h.highestAckedContiguousPktNum[addr] = highestAcked
 	}
 
-	senderWindow, ok := h.senderWindow[addr]
+	cwnd, ok := h.cwnd[addr]
 	if !ok {
-		senderWindow = h.intialSenderWindow
-		h.senderWindow[addr] = senderWindow
+		cwnd = INITIAL_CWND
+		h.cwnd[addr] = cwnd
 	}
-	if pktNum64-highestAcked > senderWindow {
-		return errors.New("Packet number exceeds sender window")
+	if pktNum64-highestAcked > cwnd {
+		return nil, errors.New("Packet number exceeds sender window")
 	}
 
 	openAck := h.createOpenAckIfNotExists(addr, pktNum)
@@ -119,7 +132,9 @@ func (h *OutgoingPktNumHandler) AddOpenAck(packet *pkt.Packet, resendFunc func()
 
 	openAck.timer = time.AfterFunc(common.ACK_TIMEOUT_DURATION, func() { h.handleAckTimeout(addr, pktNum, resendFunc) })
 
-	return nil
+	ackChan := h.SubscribeToReceivedAck(packet)
+
+	return ackChan, nil
 }
 
 // createOpenAckIfNotExists creates a new OpenAck for the given address and packet number if it does not already exist.
@@ -156,8 +171,21 @@ func (h *OutgoingPktNumHandler) handleAckTimeout(addr netip.Addr, pktNum [4]byte
 
 	logger.Debugf("ACK timeout for host %s with packet number %v\n", addr, pktNum)
 
-	// (Multiplicative) decrease sender window
-	h.senderWindow[addr] = max(h.senderWindow[addr]-2, 1)
+	if time.Since(h.lastCongestionEventTime[addr]) > common.ACK_TIMEOUT_DURATION { // Simulate: per peer RTO
+		if openAck.retries == common.RETRIES_PER_PACKET { // React only if the packet hasn't been resent yet (https://datatracker.ietf.org/doc/html/rfc5681#section-3.1)
+			// Multiplicative decrease
+			// cwnd := h.cwnd[addr]
+			packetsInFlight := int64(len(h.openAcks[addr]))
+			h.ssthresh[addr] = max(packetsInFlight/2, 2)
+			h.cwnd[addr] = INITIAL_CWND
+			// h.cwnd[addr] = max(cwnd/2, 1) // TODO
+			logger.Warnf("CONGESTION EVENT for %s %d: ssthresh set to %d, cwnd reset to %d", addr, pktNum32, h.ssthresh[addr], h.cwnd[addr])
+
+			h.lastCongestionEventTime[addr] = time.Now()
+		}
+	} else {
+		logger.Debugf("Ignoring subsequent timeout for %s; within RTO cooldown period.", addr)
+	}
 
 	resendFunc()
 
@@ -228,9 +256,30 @@ func (h *OutgoingPktNumHandler) removeOpenAck(addr netip.Addr, pktNum [4]byte, a
 		h.highestAckedContiguousPktNum[addr]++
 	}
 
-	// Additive increase sender window
 	if ackReceived {
-		h.senderWindow[addr] = h.senderWindow[addr] + 1
+		if _, exists := h.ssthresh[addr]; !exists {
+			h.ssthresh[addr] = math.MaxInt64
+		}
+
+		cwnd := h.cwnd[addr]
+		ssthresh := h.ssthresh[addr]
+
+		if cwnd < ssthresh {
+			// Slow start
+			h.cwnd[addr] = h.cwnd[addr] + 1
+			h.cAvoidanceAcc[addr] = 0 // Reset accumulator when leaving slow start
+		} else {
+			// Congestion avoidance
+			accu := h.cAvoidanceAcc[addr]
+			accu++
+
+			if accu >= cwnd {
+				h.cwnd[addr] = h.cwnd[addr] + 1
+				h.cAvoidanceAcc[addr] = 0
+			}
+
+			h.cAvoidanceAcc[addr] = accu
+		}
 	}
 }
 
@@ -253,37 +302,61 @@ func (h *OutgoingPktNumHandler) SubscribeToReceivedAck(packet *pkt.Packet) chan 
 	return openAck.observable.SubscribeOnce()
 }
 
-// GetOpenAcks returns a map of peers to their open acknowledgment packet numbers.
+// OpenAckInfo provides public information about an open acknowledgment.
+type OpenAckInfo struct {
+	PktNum      uint32
+	TimerStatus string
+}
+
+// GetOpenAcks returns a map of peers to their open acknowledgment packet numbers and timer status.
 // This is thread-safe.
-func (h *OutgoingPktNumHandler) GetOpenAcks() map[netip.Addr][]uint32 {
+func (h *OutgoingPktNumHandler) GetOpenAcks() map[netip.Addr][]OpenAckInfo {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	result := make(map[netip.Addr][]uint32)
+	result := make(map[netip.Addr][]OpenAckInfo)
 	for addr, acks := range h.openAcks {
 		if len(acks) > 0 {
-			pktNums := make([]uint32, 0, len(acks))
-			for pktNum := range acks {
-				pktNums = append(pktNums, pktNum)
+			ackInfos := make([]OpenAckInfo, 0, len(acks))
+			for pktNum, ack := range acks {
+				status := "nil"
+				if ack.timer != nil {
+					status = "active"
+				}
+				ackInfos = append(ackInfos, OpenAckInfo{PktNum: pktNum, TimerStatus: status})
 			}
 			// Sort for consistent output
-			sort.Slice(pktNums, func(i, j int) bool { return pktNums[i] < pktNums[j] })
-			result[addr] = pktNums
+			sort.Slice(ackInfos, func(i, j int) bool { return ackInfos[i].PktNum < ackInfos[j].PktNum })
+			result[addr] = ackInfos
 		}
 	}
 	return result
 }
 
-// GetSenderWindows returns a map of peers to their current sender window size.
+// GetCongestionWindows returns a map of peers to their current congestion window size.
 // This is thread-safe.
-func (h *OutgoingPktNumHandler) GetSenderWindows() map[netip.Addr]int64 {
+func (h *OutgoingPktNumHandler) GetCongestionWindows() map[netip.Addr]int64 {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
 	// Return a copy to prevent race conditions on the original map
-	windowsCopy := make(map[netip.Addr]int64, len(h.senderWindow))
-	for addr, size := range h.senderWindow {
+	windowsCopy := make(map[netip.Addr]int64, len(h.cwnd))
+	for addr, size := range h.cwnd {
 		windowsCopy[addr] = size
 	}
 	return windowsCopy
+}
+
+// GetSlowStartThresholds returns a map of peers to their current slow start threshold.
+// This is thread-safe.
+func (h *OutgoingPktNumHandler) GetSlowStartThresholds() map[netip.Addr]int64 {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	// Return a copy to prevent race conditions on the original map
+	thresholdsCopy := make(map[netip.Addr]int64, len(h.ssthresh))
+	for addr, threshold := range h.ssthresh {
+		thresholdsCopy[addr] = threshold
+	}
+	return thresholdsCopy
 }
