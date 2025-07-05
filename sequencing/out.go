@@ -31,19 +31,17 @@ type OutgoingPktNumHandler struct {
 	mu                           sync.Mutex
 	highestAckedContiguousPktNum map[netip.Addr]int64 // Maps a host address to the highest packet number that has been acknowledged for that host.
 	cwnd                         map[netip.Addr]int64
-	intialSenderWindow           int64
 	ssthresh                     map[netip.Addr]int64
 	cAvoidanceAcc                map[netip.Addr]int64     // Used to count the number of packets acked in congestion avoidance phase
 	lastCongestionEventTime      map[netip.Addr]time.Time // Timestamp of the last congestion event
 }
 
-func NewOutgoingPktNumHandler(intialWindow int64) *OutgoingPktNumHandler {
+func NewOutgoingPktNumHandler() *OutgoingPktNumHandler {
 	return &OutgoingPktNumHandler{
 		packetNumbers:                make(map[netip.Addr]uint32),
 		openAcks:                     make(map[netip.Addr]map[uint32]*OpenAck),
 		highestAckedContiguousPktNum: make(map[netip.Addr]int64),
 		cwnd:                         make(map[netip.Addr]int64),
-		intialSenderWindow:           intialWindow,
 		ssthresh:                     make(map[netip.Addr]int64),
 		cAvoidanceAcc:                make(map[netip.Addr]int64),
 		lastCongestionEventTime:      make(map[netip.Addr]time.Time),
@@ -103,13 +101,12 @@ func (h *OutgoingPktNumHandler) AddOpenAck(packet *pkt.Packet, resendFunc func()
 	defer h.mu.Unlock()
 
 	addr := netip.AddrFrom4(packet.Header.DestAddr)
-
-	_, exists := h.openAcks[addr]
-	assert.Assert(!exists, "Open acknowledgment for host %s already exists", addr)
-
 	pktNum := packet.Header.PktNum
-
+	pktNum32 := binary.BigEndian.Uint32(pktNum[:])
 	pktNum64 := int64(binary.BigEndian.Uint32(pktNum[:]))
+
+	_, exists := h.openAcks[addr][pktNum32]
+	assert.Assert(!exists, "Open acknowledgment for host", addr, "with packet number", pktNum, "already exists")
 
 	highestAcked, ok := h.highestAckedContiguousPktNum[addr]
 	if !ok {
@@ -123,35 +120,29 @@ func (h *OutgoingPktNumHandler) AddOpenAck(packet *pkt.Packet, resendFunc func()
 		h.cwnd[addr] = cwnd
 	}
 	if pktNum64-highestAcked > cwnd {
-		return nil, errors.New("Packet number exceeds sender window")
+		return nil, errors.New("Packet number exceeds congestion window")
 	}
 
-	openAck := h.createOpenAckIfNotExists(addr, pktNum)
-
-	assert.Assert(openAck.timer == nil, "Open acknowledgment for host %s with packet number %v already exists", addr, pktNum)
+	openAck := h.createOpenAck(addr, pktNum)
 
 	openAck.timer = time.AfterFunc(common.ACK_TIMEOUT_DURATION, func() { h.handleAckTimeout(addr, pktNum, resendFunc) })
 
-	ackChan := h.SubscribeToReceivedAck(packet)
-
-	return ackChan, nil
+	return openAck.observable.SubscribeOnce(), nil
 }
 
-// createOpenAckIfNotExists creates a new OpenAck for the given address and packet number if it does not already exist.
-// It initializes the retries. Timer and observable are set to nil initially.
-func (h *OutgoingPktNumHandler) createOpenAckIfNotExists(addr netip.Addr, pktNum [4]byte) *OpenAck {
-	if _, exists := h.openAcks[addr]; !exists {
-		h.openAcks[addr] = map[uint32]*OpenAck{}
-	}
-
+// createOpenAck creates a new OpenAck for the given address and packet number.
+// It initializes the retries and observable. Timer is set to nil initially.
+func (h *OutgoingPktNumHandler) createOpenAck(addr netip.Addr, pktNum [4]byte) *OpenAck {
 	pktNum32 := binary.BigEndian.Uint32(pktNum[:])
 
-	if _, exists := h.openAcks[addr][pktNum32]; !exists {
-		h.openAcks[addr][pktNum32] = &OpenAck{
-			timer:      nil,
-			retries:    common.RETRIES_PER_PACKET,
-			observable: nil,
-		}
+	if _, exists := h.openAcks[addr]; !exists {
+		h.openAcks[addr] = make(map[uint32]*OpenAck)
+	}
+
+	h.openAcks[addr][pktNum32] = &OpenAck{
+		timer:      nil,
+		retries:    common.RETRIES_PER_PACKET,
+		observable: observer.NewObservable[bool](1),
 	}
 
 	return h.openAcks[addr][pktNum32]
@@ -281,25 +272,6 @@ func (h *OutgoingPktNumHandler) removeOpenAck(addr netip.Addr, pktNum [4]byte, a
 			h.cAvoidanceAcc[addr] = accu
 		}
 	}
-}
-
-// SubscribeToReceivedAck subscribes to the observable for a specific packet.
-// The channel will once receive a notification when the ACK for the given packet is received or when all timeouts for the ACK have expired.
-// The channel will receive a boolean value indicating whether the ACK was received (true) or (false) if no ACK was received after all timeouts expired.
-func (h *OutgoingPktNumHandler) SubscribeToReceivedAck(packet *pkt.Packet) chan bool {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	addr := netip.AddrFrom4(packet.Header.DestAddr)
-	pktNum := packet.Header.PktNum
-
-	openAck := h.createOpenAckIfNotExists(addr, pktNum)
-
-	if openAck.observable == nil {
-		openAck.observable = observer.NewObservable[bool](1)
-	}
-
-	return openAck.observable.SubscribeOnce()
 }
 
 // OpenAckInfo provides public information about an open acknowledgment.
