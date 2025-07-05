@@ -88,6 +88,7 @@ func (s *udpSocket) Open(ipv4addr net.IP) (*net.UDPAddr, error) {
 			Port: 0,
 		})
 		if err != nil {
+			s.udpSocket = nil
 			return nil, err
 		}
 	}

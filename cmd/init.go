@@ -29,7 +29,10 @@ func HandleInit(args []string) {
 	}
 
 	disconnectAll() // Clear any existing connections before initializing a new one
-	router.RemoveLSA(socket.MustGetLocalAddress().Addr())
+	oldLocalAddr, err := socket.GetLocalAddress()
+	if err == nil {
+		router.RemoveLSA(oldLocalAddr.Addr())
+	}
 
 	socket.Close()
 
