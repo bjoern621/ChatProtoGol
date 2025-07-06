@@ -24,6 +24,7 @@ var logLevel LogLevel
 var fileLogger *log.Logger
 var consoleLogger *log.Logger
 var logFilePath string
+var enabled bool = true
 
 func init() {
 	initLogger()
@@ -105,6 +106,10 @@ func Errorf(format string, v ...any) {
 // Warnf prints a message prefixed with "[WARN] ".
 // A newline is added to the end of the message.
 func Warnf(format string, v ...any) {
+	if !enabled {
+		return
+	}
+
 	logFormat := fmt.Sprintf("[WARN] %s", format)
 	fileLogger.Printf(logFormat, v...)
 	if logLevel >= Warn {
@@ -125,6 +130,10 @@ func Panicf(format string, v ...any) {
 // Infof prints an informational message prefixed with "[INFO] ".
 // A newline is added to the end of the message.
 func Infof(format string, v ...any) {
+	if !enabled {
+		return
+	}
+
 	logFormat := fmt.Sprintf("[INFO] %s", format)
 	fileLogger.Printf(logFormat, v...)
 	if logLevel >= Info {
@@ -135,6 +144,10 @@ func Infof(format string, v ...any) {
 // Debugf prints a debug message prefixed with "[DEBUG] ".
 // A newline is added to the end of the message.
 func Debugf(format string, v ...any) {
+	if !enabled {
+		return
+	}
+
 	logFormat := fmt.Sprintf("[DEBUG] %s", format)
 	fileLogger.Printf(logFormat, v...)
 	if logLevel >= Debug {
@@ -145,6 +158,10 @@ func Debugf(format string, v ...any) {
 // Tracef prints a trace message prefixed with "[TRACE] ".
 // A newline is added to the end of the message.
 func Tracef(format string, v ...any) {
+	if !enabled {
+		return
+	}
+
 	logFormat := fmt.Sprintf("[TRACE] %s", format)
 	fileLogger.Printf(logFormat, v...)
 	if logLevel >= Trace {
@@ -155,4 +172,16 @@ func Tracef(format string, v ...any) {
 // GetLogFilePath returns the path to the current log file
 func GetLogFilePath() string {
 	return logFilePath
+}
+
+// SetEnable sets whether logging is enabled or not.
+// Errors and panics will still be logged, but other log levels will not output anything if disabled.
+func SetEnable(enable bool) {
+	if enable {
+		enabled = true
+		Infof("--- LOGGING ENABLED ---")
+	} else {
+		Infof("--- LOGGING DISABLED ---")
+		enabled = false
+	}
 }

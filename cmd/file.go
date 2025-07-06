@@ -28,15 +28,24 @@ func HandleSendFile(args []string) {
 		return
 	}
 
+	blocker := sequencing.GetSequenceBlocker(peerIP, pkt.MsgTypeFileTransfer)
+	success := blocker.Block()
+	if !success {
+		fmt.Printf("Can't send file to %s: Another file is currently being sent.\n", peerIP)
+		return
+	}
+
 	filePath := args[1]
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		fmt.Printf("Failed to get file info for %s: %v\n", args[1], err)
+		blocker.Unblock()
 		return
 	}
 
 	if fileInfo.IsDir() {
 		fmt.Printf("The specified path %s is a directory, not a file.\n", args[1])
+		blocker.Unblock()
 		return
 	}
 
@@ -44,13 +53,7 @@ func HandleSendFile(args []string) {
 	_, err = connection.SendReliableRoutedPacket(packet)
 	if err != nil {
 		logger.Warnf("Failed to send metadata packet to %s: %v, cancelling file transfer\n", peerIP, err)
-		return
-	}
-
-	blocker := sequencing.GetSequenceBlocker(peerIP, pkt.MsgTypeFileTransfer)
-	success := blocker.Block()
-	if !success {
-		fmt.Printf("Can't send file to %s: Another file is currently being sent.\n", peerIP)
+		blocker.Unblock()
 		return
 	}
 
@@ -59,6 +62,8 @@ func HandleSendFile(args []string) {
 
 func sendFileChunks(peerIP netip.Addr, filePath string, blocker *sequencing.SequenceBlocker) {
 	defer blocker.Unblock()
+	logger.SetEnable(false) // Disable logging for faster file transfer
+	defer logger.SetEnable(true)
 
 	file, err := os.Open(filePath)
 	if err != nil {

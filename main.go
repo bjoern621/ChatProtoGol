@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net"
 
 	"bjoernblessin.de/chatprotogol/cmd"
@@ -15,7 +16,7 @@ import (
 )
 
 func main() {
-	logger.Infof("Running...")
+	log.Printf("Running...")
 
 	udpSocket := sock.NewUDPSocket()
 
