@@ -120,3 +120,105 @@ func TestHighestAckedAdvancementWhenAllPacketsAcked(t *testing.T) {
 		t.Error("Expected openAcks[addr] to be deleted after all packets ACKed")
 	}
 }
+
+func TestCongestionAvoidanceAccumulatorReset(t *testing.T) {
+	handler := NewOutgoingPktNumHandler(2) // Small initial cwnd for faster testing
+	addr := netip.MustParseAddr("192.168.1.1")
+
+	// Force into congestion avoidance phase by setting ssthresh low
+	handler.ssthresh[addr] = 1
+	handler.cwnd[addr] = 2 // Start with cwnd = 2
+	handler.cAvoidanceAcc[addr] = 0
+
+	// Initial state: cwnd=2, accumulator=0
+	if handler.cwnd[addr] != 2 {
+		t.Errorf("Expected initial cwnd to be 2, got %d", handler.cwnd[addr])
+	}
+	if handler.cAvoidanceAcc[addr] != 0 {
+		t.Errorf("Expected initial accumulator to be 0, got %d", handler.cAvoidanceAcc[addr])
+	}
+
+	// Send packet 0
+	packet0 := makePkt(uint32(0), addr)
+	handler.packetNumbers[addr] = 1
+	_, err := handler.AddOpenAck(packet0, func() {})
+	if err != nil {
+		t.Fatalf("Failed to add open ack for packet 0: %v", err)
+	}
+
+	// Send packet 1
+	packet1 := makePkt(uint32(1), addr)
+	handler.packetNumbers[addr] = 2
+	_, err = handler.AddOpenAck(packet1, func() {})
+	if err != nil {
+		t.Fatalf("Failed to add open ack for packet 1: %v", err)
+	}
+
+	// ACK packet 0: accumulator should become 1, cwnd stays 2
+	handler.RemoveOpenAck(addr, packet0.Header.PktNum)
+	if handler.cwnd[addr] != 2 {
+		t.Errorf("After 1st ACK, expected cwnd to be 2, got %d", handler.cwnd[addr])
+	}
+	if handler.cAvoidanceAcc[addr] != 1 {
+		t.Errorf("After 1st ACK, expected accumulator to be 1, got %d", handler.cAvoidanceAcc[addr])
+	}
+
+	// Now we can send packet 2 (window has room)
+	packet2 := makePkt(uint32(2), addr)
+	handler.packetNumbers[addr] = 3
+	_, err = handler.AddOpenAck(packet2, func() {})
+	if err != nil {
+		t.Fatalf("Failed to add open ack for packet 2: %v", err)
+	}
+
+	// ACK packet 1: accumulator reaches cwnd (2), should trigger window increase and reset
+	handler.RemoveOpenAck(addr, packet1.Header.PktNum)
+	if handler.cwnd[addr] != 3 {
+		t.Errorf("After 2nd ACK, expected cwnd to be 3, got %d", handler.cwnd[addr])
+	}
+	if handler.cAvoidanceAcc[addr] != 0 {
+		t.Errorf("After 2nd ACK, expected accumulator to be reset to 0, got %d", handler.cAvoidanceAcc[addr])
+	}
+
+	// Now we can send packet 3 (window increased to 3)
+	packet3 := makePkt(uint32(3), addr)
+	handler.packetNumbers[addr] = 4
+	_, err = handler.AddOpenAck(packet3, func() {})
+	if err != nil {
+		t.Fatalf("Failed to add open ack for packet 3: %v", err)
+	}
+
+	// ACK packet 2: accumulator should become 1 again
+	handler.RemoveOpenAck(addr, packet2.Header.PktNum)
+	if handler.cwnd[addr] != 3 {
+		t.Errorf("After 3rd ACK, expected cwnd to stay 3, got %d", handler.cwnd[addr])
+	}
+	if handler.cAvoidanceAcc[addr] != 1 {
+		t.Errorf("After 3rd ACK, expected accumulator to be 1, got %d", handler.cAvoidanceAcc[addr])
+	}
+
+	// ACK packet 3: accumulator becomes 2
+	handler.RemoveOpenAck(addr, packet3.Header.PktNum)
+	if handler.cwnd[addr] != 3 {
+		t.Errorf("After 4th ACK, expected cwnd to stay 3, got %d", handler.cwnd[addr])
+	}
+	if handler.cAvoidanceAcc[addr] != 2 {
+		t.Errorf("After 4th ACK, expected accumulator to be 2, got %d", handler.cAvoidanceAcc[addr])
+	}
+
+	// Send and ACK one more packet to trigger the next window increase
+	packet4 := makePkt(uint32(4), addr)
+	handler.packetNumbers[addr] = 5
+	_, err = handler.AddOpenAck(packet4, func() {})
+	if err != nil {
+		t.Fatalf("Failed to add open ack for packet 4: %v", err)
+	}
+
+	handler.RemoveOpenAck(addr, packet4.Header.PktNum)
+	if handler.cwnd[addr] != 4 {
+		t.Errorf("After 5th ACK, expected cwnd to be 4, got %d", handler.cwnd[addr])
+	}
+	if handler.cAvoidanceAcc[addr] != 0 {
+		t.Errorf("After 5th ACK, expected accumulator to be reset to 0, got %d", handler.cAvoidanceAcc[addr])
+	}
+}

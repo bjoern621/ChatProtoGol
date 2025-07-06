@@ -272,7 +272,7 @@ func (h *OutgoingPktNumHandler) removeOpenAck(addr netip.Addr, pktNum [4]byte, a
 
 			if accu >= cwnd {
 				h.cwnd[addr] = h.cwnd[addr] + 1
-				h.cAvoidanceAcc[addr] = 0
+				accu = 0
 			}
 
 			h.cAvoidanceAcc[addr] = accu
