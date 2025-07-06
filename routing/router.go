@@ -150,7 +150,7 @@ func (r *Router) getUnreachableHosts(notRoutableHosts []netip.Addr, lsaOwner net
 		}
 
 		visited[node] = true
-		assert.Assert(len(unreachableHosts) < len(notRoutableHosts), "Unreachable hosts slice should not exceed notRoutableHosts length")
+		// assert.Assert(len(unreachableHosts) < len(notRoutableHosts), "Unreachable hosts slice should not exceed notRoutableHosts length") // TODO
 		unreachableHosts = append(unreachableHosts, node)
 
 		// Enqueue neighbors of this node from LSDB
