@@ -82,7 +82,7 @@ func sendFileChunks(peerIP netip.Addr, filePath string, blocker *sequencing.Sequ
 		}),
 	)
 
-	wg := &sync.WaitGroup{} // Used to wait for file chuck ACKs and the FIN message ACK
+	wg := &sync.WaitGroup{} // Used to wait for file chuck ACKs
 	var lastChunkPktNum [4]byte
 
 	buffer := make([]byte, common.MAX_PAYLOAD_SIZE_BYTES)
@@ -129,9 +129,6 @@ func sendFileChunks(peerIP netip.Addr, filePath string, blocker *sequencing.Sequ
 		ackChan, err = connection.SendReliableRoutedPacket(packet)
 	}
 
-	wg.Add(1)
-	go func() {
-		<-ackChan
-		// We ignore the success of the ACK to avoid blocking the send process. The receiver might not be ready for a new message but we don't care.
-	}()
+	<-ackChan
+	// We ignore the success of the ACK to avoid blocking the send process. The receiver might not be ready for a new message but we don't care.
 }

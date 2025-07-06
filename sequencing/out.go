@@ -219,13 +219,8 @@ func (h *OutgoingPktNumHandler) removeOpenAck(addr netip.Addr, pktNum [4]byte, a
 	openAck, exists := h.openAcks[addr][pktNum32]
 	assert.Assert(exists, "Open acknowledgment for host %s with packet number %v does not exist", addr, pktNum)
 
-	// ack.timer == nil is an undesired state that shouldn't be possible at best, but it may happen if we called SubscribeToReceivedAck() but never AddOpenAck()
-	if openAck.timer != nil {
-		openAck.timer.Stop()
-	}
-	if openAck.observable != nil {
-		openAck.observable.NotifyObservers(ackReceived) // Notify observers that the ACK was received / not received
-	}
+	openAck.timer.Stop()
+	openAck.observable.NotifyObservers(ackReceived) // Notify observers that the ACK was received / not received
 
 	delete(h.openAcks[addr], pktNum32)
 	if len(h.openAcks[addr]) == 0 {
