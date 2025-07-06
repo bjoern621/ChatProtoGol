@@ -87,9 +87,6 @@ func (h *OutgoingPktNumHandler) GetNextpacketNumber(addr netip.Addr) [4]byte {
 
 	h.packetNumbers[addr] = seqNum + 1
 
-	// Add debug logging to track packet number generation
-	logger.Tracef("Generated packet number %d for %s", seqNum, addr)
-
 	return [4]byte{
 		byte(seqNum >> 24),
 		byte(seqNum >> 16),
