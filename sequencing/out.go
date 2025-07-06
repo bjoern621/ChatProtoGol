@@ -179,7 +179,7 @@ func (h *OutgoingPktNumHandler) handleAckTimeout(addr netip.Addr, pktNum [4]byte
 			h.ssthresh[addr] = max(cwnd/2, 2)
 			h.cwnd[addr] = max(cwnd/2, h.initialCwnd)
 			h.cAvoidanceAcc[addr] = 0 // Reset accumulator after congestion event
-			logger.Warnf("CONGESTION EVENT for %s %d: Cwnd: %d, ssthresh set to %d, cwnd reset to %d", addr, pktNum32, cwnd, h.ssthresh[addr], h.cwnd[addr])
+			logger.Debugf("CONGESTION EVENT for %s %d: Cwnd: %d, ssthresh set to %d, cwnd reset to %d", addr, pktNum32, cwnd, h.ssthresh[addr], h.cwnd[addr])
 
 			h.lastCongestionEventTime[addr] = time.Now()
 		} else {
