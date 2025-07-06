@@ -5,6 +5,7 @@ import (
 	"net/netip"
 	"strings"
 	"sync"
+	"time"
 
 	"bjoernblessin.de/chatprotogol/common"
 	"bjoernblessin.de/chatprotogol/connection"
@@ -32,9 +33,14 @@ func HandleSend(args []string) {
 		return
 	}
 
+	go sendMsgChunks(peerIP, strings.Join(args[1:], " "), blocker)
+}
+
+func sendMsgChunks(peerIP netip.Addr, fullMsg string, blocker *sequencing.SequenceBlocker) {
+	defer blocker.Unblock()
+
 	wg := &sync.WaitGroup{}
 
-	fullMsg := strings.Join(args[1:], " ")
 	msgBytes := []byte(fullMsg)
 	bytesLen := len(msgBytes)
 
@@ -46,12 +52,11 @@ func HandleSend(args []string) {
 
 		packet := connection.BuildSequencedPacket(pkt.MsgTypeChatMessage, msgBytes[start:end], peerIP)
 
-		lastChunkPktNum = packet.Header.PktNum
-
 		ackChan, err := connection.SendReliableRoutedPacket(packet)
-		if err != nil {
-			logger.Warnf("Failed to send message to %s: %v\n", peerIP, err)
-			// Don't return, send the remaining chunks anyway.
+		for err != nil {
+			time.Sleep(common.SEQUENCE_RETRY_DELAY)
+			logger.Debugf("Failed to send message chunk %v to %s, retrying: %v", packet.Header.PktNum, peerIP, err)
+			ackChan, err = connection.SendReliableRoutedPacket(packet)
 		}
 
 		wg.Add(1)
@@ -61,26 +66,25 @@ func HandleSend(args []string) {
 			// We ignore the success of the ACK to avoid blocking the send process. The receiver might get a faulty message.
 		}()
 
+		lastChunkPktNum = packet.Header.PktNum
 		start = end
 	}
 
 	// Send the FIN message after all chunks have been sent and acknowledged
-	go func() {
-		wg.Wait() // TODO sometimes wait forever?
+	wg.Wait()
 
-		payload := []byte(lastChunkPktNum[:])
-		packet := connection.BuildSequencedPacket(pkt.MsgTypeFinish, payload, peerIP)
+	payload := []byte(lastChunkPktNum[:])
+	packet := connection.BuildSequencedPacket(pkt.MsgTypeFinish, payload, peerIP)
 
-		ackChan, err := connection.SendReliableRoutedPacket(packet)
-		if err != nil {
-			logger.Warnf("Failed to send finish message to %s: %v\n", peerIP, err)
-			return
-		}
+	ackChan, err := connection.SendReliableRoutedPacket(packet)
+	for err != nil {
+		time.Sleep(common.SEQUENCE_RETRY_DELAY)
+		logger.Debugf("Failed to send finish message to %s: %v\n", peerIP, err)
+		ackChan, err = connection.SendReliableRoutedPacket(packet)
+	}
 
-		go func() {
-			<-ackChan
-			// We ignore the success of the ACK to avoid blocking the send process. The receiver might not be ready for a new message but we don't care.
-			blocker.Unblock()
-		}()
-	}()
+	<-ackChan
+	// We ignore the success of the ACK to avoid blocking the send process. The receiver might not be ready for a new message but we don't care.
+
+	fmt.Printf("Message sent\n")
 }

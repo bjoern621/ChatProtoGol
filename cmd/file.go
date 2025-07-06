@@ -100,7 +100,7 @@ func sendFileChunks(peerIP netip.Addr, filePath string, blocker *sequencing.Sequ
 
 		ackChan, err := connection.SendReliableRoutedPacket(packet)
 		for err != nil {
-			time.Sleep(common.FILE_TRANSFER_RETRY_DELAY)
+			time.Sleep(common.SEQUENCE_RETRY_DELAY)
 			logger.Debugf("Failed to send file chunk %v to %s, retrying: %v", packet.Header.PktNum, peerIP, err)
 			ackChan, err = connection.SendReliableRoutedPacket(packet)
 		}
@@ -124,11 +124,13 @@ func sendFileChunks(peerIP netip.Addr, filePath string, blocker *sequencing.Sequ
 
 	ackChan, err := connection.SendReliableRoutedPacket(packet)
 	for err != nil {
-		time.Sleep(common.FILE_TRANSFER_RETRY_DELAY)
+		time.Sleep(common.SEQUENCE_RETRY_DELAY)
 		logger.Debugf("Failed to send finish message to %s: %v\n", peerIP, err)
 		ackChan, err = connection.SendReliableRoutedPacket(packet)
 	}
 
 	<-ackChan
 	// We ignore the success of the ACK to avoid blocking the send process. The receiver might not be ready for a new message but we don't care.
+
+	fmt.Printf("File sent\n")
 }
