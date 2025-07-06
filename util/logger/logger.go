@@ -25,6 +25,7 @@ var fileLogger *log.Logger
 var consoleLogger *log.Logger
 var logFilePath string
 var enabled bool = true
+var fileEnabled bool = true
 
 func init() {
 	initLogger()
@@ -98,7 +99,9 @@ func (l LogLevel) String() string {
 // A newline is added to the end of the message.
 func Errorf(format string, v ...any) {
 	logFormat := fmt.Sprintf("[ERROR] %s", format)
-	fileLogger.Printf(logFormat, v...)
+	if fileEnabled {
+		fileLogger.Printf(logFormat, v...)
+	}
 	consoleLogger.Fatalf(logFormat, v...)
 	assert.Never()
 }
@@ -111,7 +114,9 @@ func Warnf(format string, v ...any) {
 	}
 
 	logFormat := fmt.Sprintf("[WARN] %s", format)
-	fileLogger.Printf(logFormat, v...)
+	if fileEnabled {
+		fileLogger.Printf(logFormat, v...)
+	}
 	if logLevel >= Warn {
 		consoleLogger.Printf(logFormat, v...)
 	}
@@ -122,7 +127,9 @@ func Warnf(format string, v ...any) {
 // Technically you can recover from the panic, but that's not intended use.
 func Panicf(format string, v ...any) {
 	logFormat := fmt.Sprintf("[ERROR] %s", format)
-	fileLogger.Printf(logFormat, v...)
+	if fileEnabled {
+		fileLogger.Printf(logFormat, v...)
+	}
 	consoleLogger.Panicf(logFormat, v...)
 	assert.Never()
 }
@@ -135,7 +142,9 @@ func Infof(format string, v ...any) {
 	}
 
 	logFormat := fmt.Sprintf("[INFO] %s", format)
-	fileLogger.Printf(logFormat, v...)
+	if fileEnabled {
+		fileLogger.Printf(logFormat, v...)
+	}
 	if logLevel >= Info {
 		consoleLogger.Printf(logFormat, v...)
 	}
@@ -149,7 +158,9 @@ func Debugf(format string, v ...any) {
 	}
 
 	logFormat := fmt.Sprintf("[DEBUG] %s", format)
-	fileLogger.Printf(logFormat, v...)
+	if fileEnabled {
+		fileLogger.Printf(logFormat, v...)
+	}
 	if logLevel >= Debug {
 		consoleLogger.Printf(logFormat, v...)
 	}
@@ -163,7 +174,9 @@ func Tracef(format string, v ...any) {
 	}
 
 	logFormat := fmt.Sprintf("[TRACE] %s", format)
-	fileLogger.Printf(logFormat, v...)
+	if fileEnabled {
+		fileLogger.Printf(logFormat, v...)
+	}
 	if logLevel >= Trace {
 		consoleLogger.Printf(logFormat, v...)
 	}
@@ -183,5 +196,15 @@ func SetEnable(enable bool) {
 	} else {
 		Infof("--- LOGGING DISABLED ---")
 		enabled = false
+	}
+}
+
+func SetFileEnable(enable bool) {
+	if enable {
+		fileEnabled = true
+		Infof("--- FILE LOGGING ENABLED ---")
+	} else {
+		fileEnabled = false
+		Infof("--- FILE LOGGING DISABLED ---")
 	}
 }

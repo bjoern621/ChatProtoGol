@@ -19,6 +19,8 @@ import (
 func main() {
 	log.Printf("Running...")
 
+	logger.SetFileEnable(false) // Disable logging for faster file receiving
+
 	udpSocket := sock.NewUDPSocket()
 
 	inSequencing := sequencing.NewIncomingPktNumHandler(udpSocket)
