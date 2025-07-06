@@ -8,7 +8,6 @@ import (
 	"math"
 	"net/netip"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -175,18 +174,12 @@ func (h *OutgoingPktNumHandler) handleAckTimeout(addr netip.Addr, pktNum [4]byte
 
 	if openAck.retries == common.RETRIES_PER_PACKET { // React only if the packet hasn't been resent yet (https://datatracker.ietf.org/doc/html/rfc5681#section-3.1)
 		if time.Since(h.lastCongestionEventTime[addr]) > common.ACK_TIMEOUT_DURATION { // Simulate: per peer RTO
-			fmt.Printf("BEFORE\n")
-			h.printCongestionControlStatus()
 			// Multiplicative decrease
 			cwnd := h.cwnd[addr]
-			// h.ssthresh[addr] = max(cwnd/2, 2)
-			// h.cwnd[addr] = max(cwnd/2, INITIAL_CWND)
-			h.ssthresh[addr] = 2
-			h.cwnd[addr] = 1
+			h.ssthresh[addr] = max(cwnd/2, 2)
+			h.cwnd[addr] = max(cwnd/2, h.initialCwnd)
 			h.cAvoidanceAcc[addr] = 0 // Reset accumulator after congestion event
 			logger.Warnf("CONGESTION EVENT for %s %d: Cwnd: %d, ssthresh set to %d, cwnd reset to %d", addr, pktNum32, cwnd, h.ssthresh[addr], h.cwnd[addr])
-			fmt.Printf("AFTER\n")
-			h.printCongestionControlStatus()
 
 			h.lastCongestionEventTime[addr] = time.Now()
 		} else {
@@ -339,52 +332,6 @@ func (h *OutgoingPktNumHandler) GetSlowStartThresholds() map[netip.Addr]int64 {
 	thresholdsCopy := make(map[netip.Addr]int64, len(h.ssthresh))
 	maps.Copy(thresholdsCopy, h.ssthresh)
 	return thresholdsCopy
-}
-
-// printCongestionControlStatus prints the current congestion control status for all peers.
-// This method is similar to cmd.HandleListAcks but operates directly on the handler instance.
-func (h *OutgoingPktNumHandler) printCongestionControlStatus() {
-	openAcks := make(map[netip.Addr][]OpenAckInfo)
-	for addr, acks := range h.openAcks {
-		if len(acks) > 0 {
-			ackInfos := make([]OpenAckInfo, 0, len(acks))
-			for pktNum, ack := range acks {
-				status := "nil"
-				if ack.timer != nil {
-					status = "active"
-				}
-				ackInfos = append(ackInfos, OpenAckInfo{PktNum: pktNum, TimerStatus: status})
-			}
-			// Sort for consistent output
-			sort.Slice(ackInfos, func(i, j int) bool { return ackInfos[i].PktNum < ackInfos[j].PktNum })
-			openAcks[addr] = ackInfos
-		}
-	}
-
-	congestionWindows := h.cwnd
-
-	thresholds := h.ssthresh
-
-	if len(congestionWindows) == 0 {
-		fmt.Println("No active peer connections.")
-		return
-	}
-
-	fmt.Println("Congestion Control Status:")
-	for peerAddr, windowSize := range congestionWindows {
-		ackInfos, hasAcks := openAcks[peerAddr]
-		var ackStrings []string
-		if hasAcks {
-			for _, ack := range ackInfos {
-				ackStrings = append(ackStrings, fmt.Sprintf("%d(timer: %s)", ack.PktNum, ack.TimerStatus))
-			}
-		}
-
-		// Get the threshold, defaulting to 0 if not yet set for the peer
-		threshold := thresholds[peerAddr]
-
-		fmt.Printf("  %s -> Cwnd: %d, ssthresh: %d, Open ACKs: [%s]\n", peerAddr, windowSize, threshold, strings.Join(ackStrings, ", "))
-	}
 }
 
 // func (h *OutgoingPktNumHandler) removeOpenAck(addr netip.Addr, pktNum [4]byte, ackReceived bool) {
