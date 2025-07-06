@@ -169,7 +169,7 @@ func (h *OutgoingPktNumHandler) handleAckTimeout(addr netip.Addr, pktNum [4]byte
 			cwnd := h.cwnd[addr]
 			h.ssthresh[addr] = max(cwnd/2, 2)
 			h.cwnd[addr] = max(cwnd/2, INITIAL_CWND)
-			logger.Warnf("CONGESTION EVENT for %s %d: ssthresh set to %d, cwnd reset to %d", addr, pktNum32, h.ssthresh[addr], h.cwnd[addr])
+			logger.Warnf("CONGESTION EVENT for %s %d: Cwnd: %d, ssthresh set to %d, cwnd reset to %d", addr, pktNum32, cwnd, h.ssthresh[addr], h.cwnd[addr])
 
 			h.lastCongestionEventTime[addr] = time.Now()
 		} else {
