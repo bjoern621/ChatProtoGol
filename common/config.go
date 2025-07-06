@@ -16,9 +16,10 @@ const UDP_BUFFER_SIZE_BYTES = 1500                 // Number of bytes to read fr
 const RECEIVER_WINDOW = math.MaxInt64              // Size of sequencing buffer per peer
 const SOCKET_RECEIVE_BUFFER_SIZE = 500             // Number of packets to buffer in the receiving socket channel before dropping them
 const PACKET_HANDLER_GOROUTINES = 100              // Number of goroutines to handle incoming packets concurrently
-const INITIAL_SENDER_WINDOW = 100                  // Size of sequencing buffer for sending packets per peer; this is the initial number of packets that can be sent without waiting for an acknowledgment, modified dynamically based on ACKs received
 const SEQUENCE_RETRY_DELAY = time.Millisecond * 50 // Duration before retrying to send a file / msg chunk after sender congestion overflow
 const WINDOW_DISCARD_THRESHOLD = 3                 // Number of packets in the receiver window after which the reeiver will discard old packets to make room for new ones
+const INITIAL_CWND = 10                            // Size of the initial congestion window for new connections; this is the number of packets that can be sent before waiting for an acknowledgment, modified dynamically per peer based on ACKs received
+
 var RECEIVED_FILES_DIR string
 
 func init() {

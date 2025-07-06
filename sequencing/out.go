@@ -4,9 +4,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"net/netip"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,8 +18,6 @@ import (
 	"bjoernblessin.de/chatprotogol/util/logger"
 	"bjoernblessin.de/chatprotogol/util/observer"
 )
-
-const INITIAL_CWND = 10
 
 // OpenAck represents an open acknowledgment for a specific addr and packet number.
 type OpenAck struct {
@@ -35,9 +35,10 @@ type OutgoingPktNumHandler struct {
 	ssthresh                     map[netip.Addr]int64
 	cAvoidanceAcc                map[netip.Addr]int64     // Used to count the number of packets acked in congestion avoidance phase
 	lastCongestionEventTime      map[netip.Addr]time.Time // Timestamp of the last congestion event
+	initialCwnd                  int64
 }
 
-func NewOutgoingPktNumHandler() *OutgoingPktNumHandler {
+func NewOutgoingPktNumHandler(initialCwnd int64) *OutgoingPktNumHandler {
 	return &OutgoingPktNumHandler{
 		packetNumbers:                make(map[netip.Addr]uint32),
 		openAcks:                     make(map[netip.Addr]map[uint32]*OpenAck),
@@ -46,6 +47,7 @@ func NewOutgoingPktNumHandler() *OutgoingPktNumHandler {
 		ssthresh:                     make(map[netip.Addr]int64),
 		cAvoidanceAcc:                make(map[netip.Addr]int64),
 		lastCongestionEventTime:      make(map[netip.Addr]time.Time),
+		initialCwnd:                  initialCwnd,
 	}
 }
 
@@ -81,6 +83,9 @@ func (h *OutgoingPktNumHandler) GetNextpacketNumber(addr netip.Addr) [4]byte {
 
 	h.packetNumbers[addr] = seqNum + 1
 
+	// Add debug logging to track packet number generation
+	logger.Tracef("Generated packet number %d for %s", seqNum, addr)
+
 	return [4]byte{
 		byte(seqNum >> 24),
 		byte(seqNum >> 16),
@@ -113,7 +118,7 @@ func (h *OutgoingPktNumHandler) AddOpenAck(packet *pkt.Packet, resendFunc func()
 
 	cwnd, ok := h.cwnd[addr]
 	if !ok {
-		cwnd = INITIAL_CWND
+		cwnd = h.initialCwnd
 		h.cwnd[addr] = cwnd
 	}
 	if pktNum64-highestAcked > cwnd {
@@ -165,11 +170,17 @@ func (h *OutgoingPktNumHandler) handleAckTimeout(addr netip.Addr, pktNum [4]byte
 
 	if openAck.retries == common.RETRIES_PER_PACKET { // React only if the packet hasn't been resent yet (https://datatracker.ietf.org/doc/html/rfc5681#section-3.1)
 		if time.Since(h.lastCongestionEventTime[addr]) > common.ACK_TIMEOUT_DURATION { // Simulate: per peer RTO
+			fmt.Printf("BEFORE\n")
+			h.printCongestionControlStatus()
 			// Multiplicative decrease
 			cwnd := h.cwnd[addr]
-			h.ssthresh[addr] = max(cwnd/2, 2)
-			h.cwnd[addr] = max(cwnd/2, INITIAL_CWND)
+			// h.ssthresh[addr] = max(cwnd/2, 2)
+			// h.cwnd[addr] = max(cwnd/2, INITIAL_CWND)
+			h.ssthresh[addr] = 2
+			h.cwnd[addr] = 1
 			logger.Warnf("CONGESTION EVENT for %s %d: Cwnd: %d, ssthresh set to %d, cwnd reset to %d", addr, pktNum32, cwnd, h.ssthresh[addr], h.cwnd[addr])
+			fmt.Printf("AFTER\n")
+			h.printCongestionControlStatus()
 
 			h.lastCongestionEventTime[addr] = time.Now()
 		} else {
@@ -207,6 +218,7 @@ func (h *OutgoingPktNumHandler) RemoveOpenAck(addr netip.Addr, pktNum [4]byte) {
 
 // removeOpenAck removes a packet from the open acknowledgments and notifies all observers that an ACK was received or not received.
 // If the packet number does not exist, it panics.
+// See alternative impl at the end of this file for a second version that solves the "wrong highestAcked after congestion event" issue.
 func (h *OutgoingPktNumHandler) removeOpenAck(addr netip.Addr, pktNum [4]byte, ackReceived bool) {
 	pktNum32 := binary.BigEndian.Uint32(pktNum[:])
 
@@ -223,19 +235,19 @@ func (h *OutgoingPktNumHandler) removeOpenAck(addr netip.Addr, pktNum [4]byte, a
 
 	// Advance highest if acked packets are now contiguous
 	for {
-		openAcks, hasOpenAcks := h.openAcks[addr]
+		openAcks := h.openAcks[addr]
 
 		nextHighestPktNum32 := uint32(h.highestAckedContiguousPktNum[addr] + 1)
 
 		_, hasNextOpenAck := openAcks[nextHighestPktNum32]
 
-		if !hasOpenAcks || hasNextOpenAck {
+		if hasNextOpenAck {
 			break
 		}
 
-		delete(openAcks, nextHighestPktNum32)
-		if len(openAcks) == 0 {
-			delete(h.openAcks, addr)
+		currentPktNum := h.packetNumbers[addr] - 1 // Last packet sent
+		if nextHighestPktNum32 > currentPktNum {
+			break // We've reached the end of sent packets
 		}
 
 		h.highestAckedContiguousPktNum[addr]++
@@ -307,9 +319,7 @@ func (h *OutgoingPktNumHandler) GetCongestionWindows() map[netip.Addr]int64 {
 
 	// Return a copy to prevent race conditions on the original map
 	windowsCopy := make(map[netip.Addr]int64, len(h.cwnd))
-	for addr, size := range h.cwnd {
-		windowsCopy[addr] = size
-	}
+	maps.Copy(windowsCopy, h.cwnd)
 	return windowsCopy
 }
 
@@ -321,8 +331,131 @@ func (h *OutgoingPktNumHandler) GetSlowStartThresholds() map[netip.Addr]int64 {
 
 	// Return a copy to prevent race conditions on the original map
 	thresholdsCopy := make(map[netip.Addr]int64, len(h.ssthresh))
-	for addr, threshold := range h.ssthresh {
-		thresholdsCopy[addr] = threshold
-	}
+	maps.Copy(thresholdsCopy, h.ssthresh)
 	return thresholdsCopy
 }
+
+// printCongestionControlStatus prints the current congestion control status for all peers.
+// This method is similar to cmd.HandleListAcks but operates directly on the handler instance.
+func (h *OutgoingPktNumHandler) printCongestionControlStatus() {
+	openAcks := make(map[netip.Addr][]OpenAckInfo)
+	for addr, acks := range h.openAcks {
+		if len(acks) > 0 {
+			ackInfos := make([]OpenAckInfo, 0, len(acks))
+			for pktNum, ack := range acks {
+				status := "nil"
+				if ack.timer != nil {
+					status = "active"
+				}
+				ackInfos = append(ackInfos, OpenAckInfo{PktNum: pktNum, TimerStatus: status})
+			}
+			// Sort for consistent output
+			sort.Slice(ackInfos, func(i, j int) bool { return ackInfos[i].PktNum < ackInfos[j].PktNum })
+			openAcks[addr] = ackInfos
+		}
+	}
+
+	congestionWindows := h.cwnd
+
+	thresholds := h.ssthresh
+
+	if len(congestionWindows) == 0 {
+		fmt.Println("No active peer connections.")
+		return
+	}
+
+	fmt.Println("Congestion Control Status:")
+	for peerAddr, windowSize := range congestionWindows {
+		ackInfos, hasAcks := openAcks[peerAddr]
+		var ackStrings []string
+		if hasAcks {
+			for _, ack := range ackInfos {
+				ackStrings = append(ackStrings, fmt.Sprintf("%d(timer: %s)", ack.PktNum, ack.TimerStatus))
+			}
+		}
+
+		// Get the threshold, defaulting to 0 if not yet set for the peer
+		threshold := thresholds[peerAddr]
+
+		fmt.Printf("  %s -> Cwnd: %d, ssthresh: %d, Open ACKs: [%s]\n", peerAddr, windowSize, threshold, strings.Join(ackStrings, ", "))
+	}
+}
+
+// func (h *OutgoingPktNumHandler) removeOpenAck(addr netip.Addr, pktNum [4]byte, ackReceived bool) {
+// 	pktNum32 := binary.BigEndian.Uint32(pktNum[:])
+
+// 	openAck, exists := h.openAcks[addr][pktNum32]
+// 	assert.Assert(exists, "Open acknowledgment for host %s with packet number %v does not exist", addr, pktNum)
+
+// 	openAck.timer.Stop()
+// 	openAck.observable.NotifyObservers(ackReceived) // Notify observers that the ACK was received / not received
+
+// 	// Capture state before deletion for advancement logic
+// 	remainingPackets := make(map[uint32]bool)
+// 	if acks, exists := h.openAcks[addr]; exists {
+// 		for pktNum := range acks {
+// 			if pktNum != pktNum32 { // Exclude the packet we're about to delete
+// 				remainingPackets[pktNum] = true
+// 			}
+// 		}
+// 	}
+
+// 	delete(h.openAcks[addr], pktNum32)
+// 	if len(h.openAcks[addr]) == 0 {
+// 		delete(h.openAcks, addr)
+// 	}
+
+// 	// Add debug logging before advancing
+// 	oldHighest := h.highestAckedContiguousPktNum[addr]
+
+// 	// Advance highest if acked packets are now contiguous
+// 	for {
+// 		nextHighestPktNum32 := uint32(h.highestAckedContiguousPktNum[addr] + 1)
+
+// 		// Check if the next packet is still pending (in remaining packets)
+// 		if remainingPackets[nextHighestPktNum32] {
+// 			break // Next packet is still pending, can't advance further
+// 		}
+
+// 		// Check if we've reached the highest packet number sent
+// 		currentPktNum := h.packetNumbers[addr] - 1
+// 		if nextHighestPktNum32 > currentPktNum {
+// 			break // We've reached the end of sent packets
+// 		}
+
+// 		h.highestAckedContiguousPktNum[addr]++
+// 	}
+
+// 	// Log the advancement
+// 	newHighest := h.highestAckedContiguousPktNum[addr]
+// 	if newHighest != oldHighest {
+// 		logger.Tracef("Advanced highest contiguous for %s from %d to %d (ACKed: %d)",
+// 			addr, oldHighest, newHighest, pktNum32)
+// 	}
+
+// 	if ackReceived {
+// 		if _, exists := h.ssthresh[addr]; !exists {
+// 			h.ssthresh[addr] = math.MaxInt64
+// 		}
+
+// 		cwnd := h.cwnd[addr]
+// 		ssthresh := h.ssthresh[addr]
+
+// 		if cwnd < ssthresh {
+// 			// Slow start
+// 			h.cwnd[addr] = h.cwnd[addr] + 1
+// 			h.cAvoidanceAcc[addr] = 0 // Reset accumulator when leaving slow start
+// 		} else {
+// 			// Congestion avoidance
+// 			accu := h.cAvoidanceAcc[addr]
+// 			accu++
+
+// 			if accu >= cwnd {
+// 				h.cwnd[addr] = h.cwnd[addr] + 1
+// 				h.cAvoidanceAcc[addr] = 0 // TODO accu = 0 + test
+// 			}
+
+// 			h.cAvoidanceAcc[addr] = accu
+// 		}
+// 	}
+// }
