@@ -163,8 +163,8 @@ func (h *OutgoingPktNumHandler) handleAckTimeout(addr netip.Addr, pktNum [4]byte
 
 	logger.Debugf("ACK timeout for host %s with packet number %v\n", addr, pktNum)
 
-	if time.Since(h.lastCongestionEventTime[addr]) > common.ACK_TIMEOUT_DURATION { // Simulate: per peer RTO
-		if openAck.retries == common.RETRIES_PER_PACKET { // React only if the packet hasn't been resent yet (https://datatracker.ietf.org/doc/html/rfc5681#section-3.1)
+	if openAck.retries == common.RETRIES_PER_PACKET { // React only if the packet hasn't been resent yet (https://datatracker.ietf.org/doc/html/rfc5681#section-3.1)
+		if time.Since(h.lastCongestionEventTime[addr]) > common.ACK_TIMEOUT_DURATION { // Simulate: per peer RTO
 			// Multiplicative decrease
 			cwnd := h.cwnd[addr]
 			h.ssthresh[addr] = max(cwnd/2, 2)
@@ -172,9 +172,9 @@ func (h *OutgoingPktNumHandler) handleAckTimeout(addr netip.Addr, pktNum [4]byte
 			logger.Warnf("CONGESTION EVENT for %s %d: ssthresh set to %d, cwnd reset to %d", addr, pktNum32, h.ssthresh[addr], h.cwnd[addr])
 
 			h.lastCongestionEventTime[addr] = time.Now()
+		} else {
+			logger.Debugf("Ignoring subsequent timeout for %s; within RTO cooldown period.", addr)
 		}
-	} else {
-		logger.Debugf("Ignoring subsequent timeout for %s; within RTO cooldown period.", addr)
 	}
 
 	resendFunc()
