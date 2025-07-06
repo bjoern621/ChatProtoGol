@@ -59,6 +59,11 @@ func (h *OutgoingPktNumHandler) ClearPacketNumbers(addr netip.Addr) {
 	defer h.mu.Unlock()
 
 	delete(h.packetNumbers, addr)
+	delete(h.cwnd, addr)
+	delete(h.ssthresh, addr)
+	delete(h.cAvoidanceAcc, addr)
+	delete(h.highestAckedContiguousPktNum, addr)
+	delete(h.lastCongestionEventTime, addr)
 
 	if acks, exists := h.openAcks[addr]; exists {
 		for seqNum, ack := range acks {
