@@ -8,7 +8,7 @@ import (
 )
 
 const INITIAL_TTL = 30              // TTL for a new packet
-const MAX_PAYLOAD_SIZE_BYTES = 1484 // MTU in bytes after subtracting ChatProtocol header: 1484
+const MAX_PAYLOAD_SIZE_BYTES = 1200 // MTU in bytes after subtracting ChatProtocol header: 1484
 const ACK_TIMEOUT_DURATION = time.Second * 2
 const RETRIES_PER_PACKET = 10 // Number of times to retry sending a packet before giving up; -1 means infinite retries
 const TEAM_ID = 0x2
