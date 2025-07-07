@@ -33,12 +33,15 @@ func (ph *PacketHandler) ListenToPackets() {
 	var sem = make(chan struct{}, common.PACKET_HANDLER_GOROUTINES)
 
 	for packet := range ph.socket.Subscribe() {
-		sem <- struct{}{} // Acquire a semaphore slot
-
-		go func() {
-			ph.processPacket(packet)
-			<-sem // Release the semaphore slot
-		}()
+		select {
+		case sem <- struct{}{}: // Acquire a semaphore slot
+			go func() {
+				ph.processPacket(packet)
+				<-sem // Release the semaphore slot
+			}()
+		default:
+			logger.Tracef("Packet handler is busy, dropping packet from %v", packet.Addr.AddrPort())
+		}
 	}
 }
 
