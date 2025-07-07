@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/netip"
-	"sync"
 
 	"bjoernblessin.de/chatprotogol/connection"
 	"bjoernblessin.de/chatprotogol/pkt"
@@ -10,11 +9,6 @@ import (
 	"bjoernblessin.de/chatprotogol/sequencing/reconstruction"
 	"bjoernblessin.de/chatprotogol/sock"
 	"bjoernblessin.de/chatprotogol/util/logger"
-)
-
-var (
-	msgReconstructors      = make(map[netip.Addr]*reconstruction.InMemoryReconstructor)
-	msgReconstructorsMutex sync.Mutex
 )
 
 func handleMsg(packet *pkt.Packet, socket sock.Socket, inSequencing *sequencing.IncomingPktNumHandler) {
@@ -44,13 +38,5 @@ func handleMsg(packet *pkt.Packet, socket sock.Socket, inSequencing *sequencing.
 
 	_ = connection.SendRoutedAcknowledgment(srcAddr, packet.Header.PktNum)
 
-	msgReconstructorsMutex.Lock()
-	defer msgReconstructorsMutex.Unlock()
-
-	reconstructor, exists := msgReconstructors[srcAddr]
-	if !exists {
-		reconstructor = reconstruction.NewInMemoryReconstructor()
-		msgReconstructors[srcAddr] = reconstructor
-	}
-	reconstructor.HandleIncomingMsgPacket(packet)
+	reconstruction.GetMsgReconstructor(srcAddr).HandleIncomingMsgPacket(packet)
 }

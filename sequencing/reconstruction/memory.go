@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"slices"
+	"sync"
 
 	"bjoernblessin.de/chatprotogol/pkt"
 	"bjoernblessin.de/chatprotogol/util/assert"
@@ -14,6 +15,7 @@ import (
 
 type InMemoryReconstructor struct {
 	bufferedPayloads map[[4]byte]pkt.Payload
+	mu               sync.Mutex
 }
 
 // NewInMemoryReconstructor creates a new InMemoryReconstructor instance.
@@ -27,12 +29,18 @@ func NewInMemoryReconstructor() *InMemoryReconstructor {
 // It stores the payload in the reconstruction buffer.
 // The buffer can be read later using finishMsgPacketSequence.
 func (r *InMemoryReconstructor) HandleIncomingMsgPacket(packet *pkt.Packet) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	r.bufferedPayloads[packet.Header.PktNum] = packet.Payload
 }
 
 // FinishMsgPacketSequence completes the current packet sequence for a specific source address.
 // The local buffer is cleared after returning the complete message, so the returned message should be copied if needed later.
 func (r *InMemoryReconstructor) FinishMsgPacketSequence() (completeMsg []byte, err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	sortedSeqNums := []uint32{}
 	for seqNum := range r.bufferedPayloads {
 		sortedSeqNums = append(sortedSeqNums, binary.BigEndian.Uint32(seqNum[:]))
@@ -53,6 +61,9 @@ func (r *InMemoryReconstructor) FinishMsgPacketSequence() (completeMsg []byte, e
 
 // GetHighestPktNum returns the highest packet number that has been processed by this reconstructor.
 func (r *InMemoryReconstructor) GetHighestPktNum() (uint32, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	if len(r.bufferedPayloads) == 0 {
 		return 0, errors.New("no packets buffered")
 	}
@@ -66,4 +77,12 @@ func (r *InMemoryReconstructor) GetHighestPktNum() (uint32, error) {
 	}
 
 	return highestPktNum, nil
+}
+
+func (r *InMemoryReconstructor) ClearState() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.bufferedPayloads = nil
+	return nil
 }

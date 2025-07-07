@@ -11,7 +11,6 @@ import (
 
 	"bjoernblessin.de/chatprotogol/common"
 	"bjoernblessin.de/chatprotogol/pkt"
-	"bjoernblessin.de/chatprotogol/sequencing"
 	"bjoernblessin.de/chatprotogol/util/assert"
 )
 
@@ -24,19 +23,19 @@ type OnDiskReconstructor struct {
 	highestWrittenPktNum   int64
 	highestUnwrittenPktNum int64
 	file                   *os.File
-	inSequencing           *sequencing.IncomingPktNumHandler
-	peerAddr               netip.Addr
-	mu                     sync.Mutex // Mutex to protect concurrent access to the (whole) reconstructor
+	// inSequencing           *sequencing.IncomingPktNumHandler
+	peerAddr netip.Addr
+	mu       sync.Mutex // Mutex to protect concurrent access to the (whole) reconstructor
 }
 
-func NewOnDiskReconstructor(inSeq *sequencing.IncomingPktNumHandler, peerAddr netip.Addr) *OnDiskReconstructor {
+func NewOnDiskReconstructor(peerAddr netip.Addr) *OnDiskReconstructor {
 	return &OnDiskReconstructor{
 		packetBuffer:           make(map[int64]pkt.Payload),
 		lowestPktNum:           -1,
 		highestWrittenPktNum:   -1,
 		highestUnwrittenPktNum: -1,
-		inSequencing:           inSeq,
-		peerAddr:               peerAddr,
+		// inSequencing:           inSeq,
+		peerAddr: peerAddr,
 	}
 }
 
@@ -167,4 +166,22 @@ func (r *OnDiskReconstructor) GetHighestPktNum() (uint32, error) {
 	}
 
 	return uint32(r.highestUnwrittenPktNum), nil
+}
+
+func (r *OnDiskReconstructor) ClearState() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.packetBuffer = nil
+	r.lowestPktNum = -1
+	r.highestWrittenPktNum = -1
+	r.highestUnwrittenPktNum = -1
+
+	var err error = nil
+	if r.file != nil {
+		err = r.file.Close()
+		r.file = nil
+	}
+
+	return err
 }
