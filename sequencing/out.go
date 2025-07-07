@@ -411,7 +411,7 @@ func (h *OutgoingPktNumHandler) GetSlowStartThresholds() map[netip.Addr]int64 {
 
 // 			if accu >= cwnd {
 // 				h.cwnd[addr] = h.cwnd[addr] + 1
-// 				h.cAvoidanceAcc[addr] = 0 // TODO accu = 0 + test
+// 				accu = 0
 // 			}
 
 // 			h.cAvoidanceAcc[addr] = accu

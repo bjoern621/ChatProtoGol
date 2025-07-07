@@ -83,10 +83,10 @@ func (r *OnDiskReconstructor) HandleIncomingFilePacket(packet *pkt.Packet) error
 func (r *OnDiskReconstructor) flushContiguousPayloads() {
 	// highestContiguousPktNum := r.inSequencing.GetHighestContiguousSeqNum(r.peerAddr)
 	// TODO ^^^
-	// TODO bug out of order received, GetHighestContiguousSeqNum() already updated, but HandleIncomingFilePacket() not called yet with the new packet
-	// TODO meaning that GetHighestContiguousSeqNum() is e.g. N, we try to write N-2 til N, we write N-2 and N-1, but N is not written (it is skipped) because we dont have it in the buffer yet
-	// TODO we should keep our on GetHighestContiguousSeqNum() and dont rely on sequencing
-	// TODO maybe a method like HandleIncomingNonFilePacket()
+	// bug out of order received, GetHighestContiguousSeqNum() already updated, but HandleIncomingFilePacket() not called yet with the new packet
+	// meaning that GetHighestContiguousSeqNum() is e.g. N, we try to write N-2 til N, we write N-2 and N-1, but N is not written (it is skipped) because we dont have it in the buffer yet
+	// we should keep our on GetHighestContiguousSeqNum() and dont rely on sequencing
+	// maybe a method like HandleIncomingNonFilePacket()
 
 	for i := r.highestWrittenPktNum + 1; i <= r.highestUnwrittenPktNum; i++ {
 		// if i > highestContiguousPktNum {
