@@ -24,7 +24,7 @@ func main() {
 	udpSocket := sock.NewUDPSocket()
 
 	inSequencing := sequencing.NewIncomingPktNumHandler(udpSocket)
-	outSequencing := sequencing.NewOutgoingPktNumHandler(common.INITIAL_CWND)
+	outSequencing := sequencing.NewOutgoingPktNumHandler(common.INITIAL_CWND, common.IGNORE_CWND)
 
 	router := routing.NewRouter(udpSocket)
 

@@ -18,6 +18,7 @@ const SOCKET_RECEIVE_BUFFER_SIZE = 500              // Number of packets to buff
 const PACKET_HANDLER_GOROUTINES = 100               // Number of goroutines to handle incoming packets concurrently
 const CWND_FULL_RETRY_DELAY = time.Millisecond * 50 // Duration before retrying to send a file / msg chunk after sender congestion overflow
 const INITIAL_CWND = 10                             // Size of the initial congestion window for new connections; this is the number of packets that can be sent before waiting for an acknowledgment, modified dynamically per peer based on ACKs received
+const IGNORE_CWND = true                            // If true, the congestion window will not limit the number of packets sent
 
 var RECEIVED_FILES_DIR string
 

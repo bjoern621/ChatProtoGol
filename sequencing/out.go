@@ -35,11 +35,12 @@ type OutgoingPktNumHandler struct {
 	cAvoidanceAcc                map[netip.Addr]int64     // Used to count the number of packets acked in congestion avoidance phase
 	rtoStartTime                 map[netip.Addr]time.Time // Start time of the simulated RTO timer
 	initialCwnd                  int64
+	ignoreCwnd                   bool // If true, the congestion window will not limit the number of packets sent
 }
 
 var CongestionWindowFullError = errors.New("Congestion window full, cannot send packet")
 
-func NewOutgoingPktNumHandler(initialCwnd int64) *OutgoingPktNumHandler {
+func NewOutgoingPktNumHandler(initialCwnd int64, ignoreCwnd bool) *OutgoingPktNumHandler {
 	return &OutgoingPktNumHandler{
 		packetNumbers:                make(map[netip.Addr]uint32),
 		openAcks:                     make(map[netip.Addr]map[uint32]*OpenAck),
@@ -49,6 +50,7 @@ func NewOutgoingPktNumHandler(initialCwnd int64) *OutgoingPktNumHandler {
 		cAvoidanceAcc:                make(map[netip.Addr]int64),
 		rtoStartTime:                 make(map[netip.Addr]time.Time),
 		initialCwnd:                  initialCwnd,
+		ignoreCwnd:                   ignoreCwnd,
 	}
 }
 
@@ -124,7 +126,7 @@ func (h *OutgoingPktNumHandler) AddOpenAck(packet *pkt.Packet, resendFunc func()
 		cwnd = h.initialCwnd
 		h.cwnd[addr] = cwnd
 	}
-	if pktNum64-highestAcked > cwnd {
+	if pktNum64-highestAcked > cwnd && !h.ignoreCwnd {
 		return nil, fmt.Errorf("%w - PktNum: %d, [%d, %d]", CongestionWindowFullError, pktNum64, highestAcked, highestAcked+cwnd)
 	}
 
@@ -167,18 +169,20 @@ func (h *OutgoingPktNumHandler) handleAckTimeout(addr netip.Addr, pktNum [4]byte
 
 	logger.Debugf("ACK timeout for host %s with packet number %v\n", addr, pktNum)
 
-	if openAck.retries == common.RETRIES_PER_PACKET { // React only if the packet hasn't been resent yet (https://datatracker.ietf.org/doc/html/rfc5681#section-3.1)
-		if time.Since(h.rtoStartTime[addr]) > common.ACK_TIMEOUT_DURATION { // Simulate: per peer RTO
-			// Multiplicative decrease
-			cwnd := h.cwnd[addr]
-			h.ssthresh[addr] = max(cwnd/2, 2)
-			h.cwnd[addr] = max(cwnd/2, h.initialCwnd)
-			h.cAvoidanceAcc[addr] = 0 // Reset accumulator after congestion event
-			logger.Debugf("CONGESTION EVENT for %s %d: Cwnd: %d, ssthresh set to %d, cwnd reset to %d", addr, pktNum32, cwnd, h.ssthresh[addr], h.cwnd[addr])
+	if !h.ignoreCwnd {
+		if openAck.retries == common.RETRIES_PER_PACKET { // React only if the packet hasn't been resent yet (https://datatracker.ietf.org/doc/html/rfc5681#section-3.1)
+			if time.Since(h.rtoStartTime[addr]) > common.ACK_TIMEOUT_DURATION { // Simulate: per peer RTO
+				// Multiplicative decrease
+				cwnd := h.cwnd[addr]
+				h.ssthresh[addr] = max(cwnd/2, 2)
+				h.cwnd[addr] = max(cwnd/2, h.initialCwnd)
+				h.cAvoidanceAcc[addr] = 0 // Reset accumulator after congestion event
+				logger.Debugf("CONGESTION EVENT for %s %d: Cwnd: %d, ssthresh set to %d, cwnd reset to %d", addr, pktNum32, cwnd, h.ssthresh[addr], h.cwnd[addr])
 
-			h.rtoStartTime[addr] = time.Now()
-		} else {
-			logger.Debugf("Ignoring (subsequent) timeout for %s; within RTO cooldown period.", addr)
+				h.rtoStartTime[addr] = time.Now()
+			} else {
+				logger.Debugf("Ignoring (subsequent) timeout for %s; within RTO cooldown period.", addr)
+			}
 		}
 	}
 
@@ -257,7 +261,7 @@ func (h *OutgoingPktNumHandler) removeOpenAck(addr netip.Addr, pktNum [4]byte, a
 		h.rtoStartTime[addr] = time.Now() // Reset RTO start time after advancing highest contiguous
 	}
 
-	if ackReceived {
+	if ackReceived && !h.ignoreCwnd {
 		if _, exists := h.ssthresh[addr]; !exists {
 			h.ssthresh[addr] = math.MaxInt64
 		}

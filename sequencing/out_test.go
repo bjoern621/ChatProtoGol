@@ -22,7 +22,7 @@ func makePkt(num uint32, dest netip.Addr) *pkt.Packet {
 func TestSenderWindowBlocks(t *testing.T) {
 	window := int64(3)
 
-	out := NewOutgoingPktNumHandler(window)
+	out := NewOutgoingPktNumHandler(window, false)
 	dest, _ := netip.ParseAddr("10.0.0.1")
 
 	// Cannot send too far ahead packet
@@ -69,7 +69,7 @@ func TestSenderWindowBlocks(t *testing.T) {
 }
 
 func TestHighestAckedAdvancementWhenAllPacketsAcked(t *testing.T) {
-	handler := NewOutgoingPktNumHandler(10)
+	handler := NewOutgoingPktNumHandler(10, false)
 	addr := netip.MustParseAddr("192.168.1.1")
 
 	// Send packets 0, 1, 2, 3
@@ -122,7 +122,7 @@ func TestHighestAckedAdvancementWhenAllPacketsAcked(t *testing.T) {
 }
 
 func TestCongestionAvoidanceAccumulatorReset(t *testing.T) {
-	handler := NewOutgoingPktNumHandler(2) // Small initial cwnd for faster testing
+	handler := NewOutgoingPktNumHandler(2, false) // Small initial cwnd for faster testing
 	addr := netip.MustParseAddr("192.168.1.1")
 
 	// Force into congestion avoidance phase by setting ssthresh low

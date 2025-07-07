@@ -109,10 +109,6 @@ func Errorf(format string, v ...any) {
 // Warnf prints a message prefixed with "[WARN] ".
 // A newline is added to the end of the message.
 func Warnf(format string, v ...any) {
-	if !enabled {
-		return
-	}
-
 	logFormat := fmt.Sprintf("[WARN] %s", format)
 	if fileEnabled {
 		fileLogger.Printf(logFormat, v...)
