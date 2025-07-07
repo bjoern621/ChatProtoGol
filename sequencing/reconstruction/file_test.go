@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"bjoernblessin.de/chatprotogol/pkt"
-	"bjoernblessin.de/chatprotogol/sequencing"
 )
 
 func makePacket(seqNum uint32, payload []byte) *pkt.Packet {
@@ -27,10 +26,8 @@ func TestOnDiskReconstructor_ContiguousWrite(t *testing.T) {
 	content2 := []byte("world!")
 	content3 := []byte(" Goodbye.")
 
-	// Dummy sequencing handler that always returns the highest contiguous seq num
-	inSeq := &sequencing.IncomingPktNumHandler{}
 	peerAddr := netip.MustParseAddr("10.0.0.2")
-	r := NewOnDiskReconstructor(inSeq, peerAddr)
+	r := NewOnDiskReconstructor(peerAddr)
 
 	// Simulate receiving packets in order: 0 (meta), 1, 2, 3
 	r.HandleIncomingFilePacket(makePacket(0, metaPayload))
@@ -59,9 +56,8 @@ func TestOnDiskReconstructor_OutOfOrderWrite(t *testing.T) {
 	content2 := []byte("B")
 	content3 := []byte("C")
 
-	inSeq := &sequencing.IncomingPktNumHandler{}
 	peerAddr := netip.MustParseAddr("10.0.0.2")
-	recon := NewOnDiskReconstructor(inSeq, peerAddr)
+	recon := NewOnDiskReconstructor(peerAddr)
 
 	// Out of order: 0 (meta), 2, 1, 3
 	recon.HandleIncomingFilePacket(makePacket(0, metaPayload))
@@ -89,9 +85,8 @@ func Test_MissingPackets(t *testing.T) {
 	content1 := []byte("X")
 	content2 := []byte("Y")
 
-	inSeq := &sequencing.IncomingPktNumHandler{}
 	peerAddr := netip.MustParseAddr("10.0.0.2")
-	r := NewOnDiskReconstructor(inSeq, peerAddr)
+	r := NewOnDiskReconstructor(peerAddr)
 
 	// Simulate missing packet: 0 (meta), 2, 3
 	r.HandleIncomingFilePacket(makePacket(0, metaPayload))
@@ -119,10 +114,9 @@ func Test_MetadataNotFirstPacket(t *testing.T) {
 	content2 := []byte("world!")
 	content3 := []byte(" Goodbye.")
 
-	inSeq := &sequencing.IncomingPktNumHandler{}
 	peerAddr := netip.MustParseAddr("10.0.0.2")
 
-	r := NewOnDiskReconstructor(inSeq, peerAddr)
+	r := NewOnDiskReconstructor(peerAddr)
 	r.HandleIncomingFilePacket(makePacket(1, content1))
 	r.HandleIncomingFilePacket(makePacket(3, content3))
 	r.HandleIncomingFilePacket(makePacket(0, metaPayload))
