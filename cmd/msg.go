@@ -5,7 +5,6 @@ import (
 	"net/netip"
 	"strings"
 	"sync"
-	"time"
 
 	"bjoernblessin.de/chatprotogol/common"
 	"bjoernblessin.de/chatprotogol/connection"
@@ -54,9 +53,8 @@ func sendMsgChunks(peerIP netip.Addr, fullMsg string, blocker *sequencing.Sequen
 
 		ackChan, err := connection.SendReliableRoutedPacket(packet)
 		for err != nil {
-			time.Sleep(common.SEQUENCE_RETRY_DELAY)
-			logger.Debugf("Failed to send message chunk %v to %s, retrying: %v", packet.Header.PktNum, peerIP, err)
-			ackChan, err = connection.SendReliableRoutedPacket(packet)
+			logger.Debugf("Failed to send message chunk %v to %s, skipping: %v", packet.Header.PktNum, peerIP, err)
+			continue
 		}
 
 		wg.Add(1)
@@ -78,9 +76,8 @@ func sendMsgChunks(peerIP netip.Addr, fullMsg string, blocker *sequencing.Sequen
 
 	ackChan, err := connection.SendReliableRoutedPacket(packet)
 	for err != nil {
-		time.Sleep(common.SEQUENCE_RETRY_DELAY)
 		logger.Debugf("Failed to send finish message to %s: %v\n", peerIP, err)
-		ackChan, err = connection.SendReliableRoutedPacket(packet)
+		return
 	}
 
 	<-ackChan

@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/netip"
 	"slices"
+	"time"
 
 	"bjoernblessin.de/chatprotogol/common"
 	"bjoernblessin.de/chatprotogol/pkt"
@@ -42,7 +43,7 @@ var msgTypeNames = map[byte]string{
 // SendReliableRoutedPacket sends a packet.
 // Reliable: Resends and timeouts are handled.
 // Routed: Uses the routing table to determine the next hop.
-// Errors if the destination address is not reachable, the sender window would be exceeded or sending fails.
+// Errors if the destination address is not reachable or sending fails.
 func SendReliableRoutedPacket(packet *pkt.Packet) (chan bool, error) {
 	destinationIP := netip.AddrFrom4(packet.Header.DestAddr)
 
@@ -51,16 +52,29 @@ func SendReliableRoutedPacket(packet *pkt.Packet) (chan bool, error) {
 		return nil, errors.New("no next hop found for the destination address")
 	}
 
-	ackChan, err := outgoingSequencing.AddOpenAck(packet, func() {
-		nextHop, found := router.GetNextHop(destinationIP) // Get the current next hop again (it may have changed)
-		if !found {
-			logger.Infof("Host %s is no longer reachable, removing open acknowledgment for packet number %v", destinationIP, packet.Header.PktNum)
-			return // Peer no longer reachable (e.g., disconnected)
+	var ackChan chan bool
+	var err error
+
+	for {
+		ackChan, err = outgoingSequencing.AddOpenAck(packet, func() {
+			nextHop, found := router.GetNextHop(destinationIP) // Get the current next hop again (it may have changed)
+			if !found {
+				logger.Infof("Host %s is no longer reachable, removing open acknowledgment for packet number %v", destinationIP, packet.Header.PktNum)
+				return // Peer no longer reachable (e.g., disconnected)
+			}
+
+			_ = sendPacketTo(nextHop, packet)
+		})
+
+		if err == nil {
+			break
 		}
 
-		_ = sendPacketTo(nextHop, packet)
-	})
-	if err != nil {
+		if errors.Is(err, sequencing.CongestionWindowFullError) {
+			time.Sleep(common.CWND_FULL_RETRY_DELAY)
+			continue
+		}
+
 		return nil, errors.New("failed to add open acknowledgment: " + err.Error())
 	}
 
@@ -76,10 +90,23 @@ func SendReliableRoutedPacket(packet *pkt.Packet) (chan bool, error) {
 // Reliable: Resends and timeouts are handled.
 // To: Send the packet to a specific address and port.
 func SendReliablePacketTo(addrPort netip.AddrPort, packet *pkt.Packet) (chan bool, error) {
-	ackChan, err := outgoingSequencing.AddOpenAck(packet, func() {
-		_ = sendPacketTo(addrPort, packet)
-	})
-	if err != nil {
+	var ackChan chan bool
+	var err error
+
+	for {
+		ackChan, err = outgoingSequencing.AddOpenAck(packet, func() {
+			_ = sendPacketTo(addrPort, packet)
+		})
+
+		if err == nil {
+			break
+		}
+
+		if errors.Is(err, sequencing.CongestionWindowFullError) {
+			time.Sleep(common.CWND_FULL_RETRY_DELAY)
+			continue
+		}
+
 		return nil, errors.New("failed to add open acknowledgment: " + err.Error())
 	}
 

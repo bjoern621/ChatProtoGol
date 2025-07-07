@@ -105,9 +105,8 @@ func sendFileChunks(peerIP netip.Addr, filePath string, blocker *sequencing.Sequ
 
 		ackChan, err := connection.SendReliableRoutedPacket(packet)
 		for err != nil {
-			time.Sleep(common.SEQUENCE_RETRY_DELAY)
-			logger.Debugf("Failed to send file chunk %v to %s, retrying: %v", packet.Header.PktNum, peerIP, err)
-			ackChan, err = connection.SendReliableRoutedPacket(packet)
+			logger.Debugf("Failed to send file chunk %v to %s, skipping: %v", packet.Header.PktNum, peerIP, err)
+			continue
 		}
 
 		wg.Add(1)
@@ -129,9 +128,8 @@ func sendFileChunks(peerIP netip.Addr, filePath string, blocker *sequencing.Sequ
 
 	ackChan, err := connection.SendReliableRoutedPacket(packet)
 	for err != nil {
-		time.Sleep(common.SEQUENCE_RETRY_DELAY)
 		logger.Debugf("Failed to send finish message to %s: %v\n", peerIP, err)
-		ackChan, err = connection.SendReliableRoutedPacket(packet)
+		return
 	}
 
 	<-ackChan

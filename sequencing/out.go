@@ -37,6 +37,8 @@ type OutgoingPktNumHandler struct {
 	initialCwnd                  int64
 }
 
+var CongestionWindowFullError = errors.New("Congestion window full, cannot send packet")
+
 func NewOutgoingPktNumHandler(initialCwnd int64) *OutgoingPktNumHandler {
 	return &OutgoingPktNumHandler{
 		packetNumbers:                make(map[netip.Addr]uint32),
@@ -123,11 +125,7 @@ func (h *OutgoingPktNumHandler) AddOpenAck(packet *pkt.Packet, resendFunc func()
 		h.cwnd[addr] = cwnd
 	}
 	if pktNum64-highestAcked > cwnd {
-		return nil, errors.New("Packet number " +
-			fmt.Sprint(pktNum64) +
-			" exceeds congestion window, [" +
-			fmt.Sprint(highestAcked) + ", " +
-			fmt.Sprint(highestAcked+cwnd) + "]")
+		return nil, fmt.Errorf("%w - PktNum: %d, [%d, %d]", CongestionWindowFullError, pktNum64, highestAcked, highestAcked+cwnd)
 	}
 
 	openAck := h.createOpenAck(addr, pktNum)
