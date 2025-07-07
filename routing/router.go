@@ -151,6 +151,10 @@ func (r *Router) getUnreachableHosts(notRoutableHosts []netip.Addr, lsaOwner net
 
 		visited[node] = true
 		// assert.Assert(len(unreachableHosts) < len(notRoutableHosts), "Unreachable hosts slice should not exceed notRoutableHosts length") // TODO
+		if node == r.socket.MustGetLocalAddress().Addr() { // TODO shouldn't happen
+			// If the local address is in the unreachable hosts, we don't want to add it to the unreachable hosts list
+			continue
+		}
 		unreachableHosts = append(unreachableHosts, node)
 
 		// Enqueue neighbors of this node from LSDB
