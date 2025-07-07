@@ -18,7 +18,8 @@ func ClearUnreachableHosts(unreachableHosts []netip.Addr) {
 		incomingSequencing.ClearIncomingPacketNumbers(addr)
 		outgoingSequencing.ClearPacketNumbers(addr)
 		sequencing.ClearBlockers(addr)
-		reconstruction.ClearReconstructors(addr)
-		// todo error exceeds when lsa / dd
+		reconstruction.ClearFileReconstructor(addr)
+		reconstruction.ClearMsgReconstructor(addr)
+		// todo error exceeds when lsa / dd (make reliable block)
 	}
 }

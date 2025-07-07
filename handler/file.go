@@ -35,7 +35,7 @@ func handleFileTransfer(packet *pkt.Packet, socket sock.Socket, inSequencing *se
 		return
 	}
 
-	reconstruction.GetFileReconstructor(srcAddr).HandleIncomingFilePacket(packet)
+	reconstruction.GetOrCreateFileReconstructor(srcAddr).HandleIncomingFilePacket(packet)
 
 	_ = connection.SendRoutedAcknowledgment(srcAddr, packet.Header.PktNum)
 }

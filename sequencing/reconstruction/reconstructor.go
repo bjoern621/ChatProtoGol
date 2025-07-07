@@ -25,7 +25,7 @@ var (
 	msgReconstructorsMutex sync.Mutex
 )
 
-func GetFileReconstructor(addr netip.Addr) *OnDiskReconstructor {
+func GetOrCreateFileReconstructor(addr netip.Addr) *OnDiskReconstructor {
 	fileReconstructorsMutex.Lock()
 	defer fileReconstructorsMutex.Unlock()
 
@@ -40,7 +40,19 @@ func GetFileReconstructor(addr netip.Addr) *OnDiskReconstructor {
 	return reconstructor
 }
 
-func GetMsgReconstructor(addr netip.Addr) *InMemoryReconstructor {
+func GetFileReconstructor(addr netip.Addr) (*OnDiskReconstructor, bool) {
+	fileReconstructorsMutex.Lock()
+	defer fileReconstructorsMutex.Unlock()
+
+	reconstructor, exists := fileReconstructors[addr]
+	if !exists {
+		return nil, false
+	}
+
+	return reconstructor, true
+}
+
+func GetOrCreateMsgReconstructor(addr netip.Addr) *InMemoryReconstructor {
 	msgReconstructorsMutex.Lock()
 	defer msgReconstructorsMutex.Unlock()
 
@@ -53,21 +65,40 @@ func GetMsgReconstructor(addr netip.Addr) *InMemoryReconstructor {
 	return reconstructor
 }
 
-func ClearReconstructors(addr netip.Addr) {
-	fileReconstructorsMutex.Lock()
-	defer fileReconstructorsMutex.Unlock()
+func GetMsgReconstructor(addr netip.Addr) (*InMemoryReconstructor, bool) {
 	msgReconstructorsMutex.Lock()
 	defer msgReconstructorsMutex.Unlock()
+
+	reconstructor, exists := msgReconstructors[addr]
+	if !exists {
+		return nil, false
+	}
+
+	return reconstructor, true
+}
+
+func ClearFileReconstructor(addr netip.Addr) {
+	fileReconstructorsMutex.Lock()
+	defer fileReconstructorsMutex.Unlock()
 
 	if reconstructor, exists := fileReconstructors[addr]; exists {
 		reconstructor.ClearState()
 		delete(fileReconstructors, addr)
+		logger.Debugf("Cleared file reconstructor state for %v", addr)
+	} else {
+		logger.Debugf("No file reconstructor found for %v to clear", addr)
 	}
+}
+
+func ClearMsgReconstructor(addr netip.Addr) {
+	msgReconstructorsMutex.Lock()
+	defer msgReconstructorsMutex.Unlock()
 
 	if reconstructor, exists := msgReconstructors[addr]; exists {
 		reconstructor.ClearState()
 		delete(msgReconstructors, addr)
+		logger.Debugf("Cleared message reconstructor state for %v", addr)
+	} else {
+		logger.Debugf("No message reconstructor found for %v to clear", addr)
 	}
-
-	logger.Debugf("Cleared all reconstructor states for %v", addr)
 }

@@ -38,5 +38,5 @@ func handleMsg(packet *pkt.Packet, socket sock.Socket, inSequencing *sequencing.
 
 	_ = connection.SendRoutedAcknowledgment(srcAddr, packet.Header.PktNum)
 
-	reconstruction.GetMsgReconstructor(srcAddr).HandleIncomingMsgPacket(packet)
+	reconstruction.GetOrCreateMsgReconstructor(srcAddr).HandleIncomingMsgPacket(packet)
 }

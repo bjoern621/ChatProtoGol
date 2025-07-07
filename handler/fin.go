@@ -8,6 +8,7 @@ import (
 	"bjoernblessin.de/chatprotogol/connection"
 	"bjoernblessin.de/chatprotogol/pkt"
 	"bjoernblessin.de/chatprotogol/sequencing"
+	"bjoernblessin.de/chatprotogol/sequencing/reconstruction"
 	"bjoernblessin.de/chatprotogol/sock"
 	"bjoernblessin.de/chatprotogol/util/logger"
 )
@@ -45,9 +46,7 @@ func handleFinish(packet *pkt.Packet, inSequencing *sequencing.IncomingPktNumHan
 
 	_ = connection.SendRoutedAcknowledgment(srcAddr, packet.Header.PktNum)
 
-	fileReconstructorsMutex.Lock()
-	defer fileReconstructorsMutex.Unlock()
-	fileReconstructor, exists := fileReconstructors[srcAddr]
+	fileReconstructor, exists := reconstruction.GetFileReconstructor(srcAddr)
 	if exists {
 		highestFilePktNum, err := fileReconstructor.GetHighestPktNum()
 		if err == nil && highestFilePktNum == lastPktNum {
@@ -55,22 +54,19 @@ func handleFinish(packet *pkt.Packet, inSequencing *sequencing.IncomingPktNumHan
 
 			logger.Infof("File transfer completed for %v", srcAddr)
 
-			delete(fileReconstructors, srcAddr)
-
 			filePath, err := fileReconstructor.FinishFilePacketSequence()
 			if err != nil {
 				logger.Warnf("Failed to finish file packet sequence: %v", err)
-				return
 			}
+
+			reconstruction.ClearFileReconstructor(srcAddr)
 
 			fmt.Printf("FILE %v: %s\n", srcAddr, filePath)
 			return
 		}
 	}
 
-	msgReconstructorsMutex.Lock()
-	defer msgReconstructorsMutex.Unlock()
-	msgReconstructor, exists := msgReconstructors[srcAddr]
+	msgReconstructor, exists := reconstruction.GetMsgReconstructor(srcAddr)
 	if exists {
 		highestMsgPktNum, err := msgReconstructor.GetHighestPktNum()
 		if err == nil && highestMsgPktNum == lastPktNum {
@@ -78,13 +74,12 @@ func handleFinish(packet *pkt.Packet, inSequencing *sequencing.IncomingPktNumHan
 
 			logger.Infof("Message transfer completed for %v", srcAddr)
 
-			delete(msgReconstructors, srcAddr)
-
 			completeMsg, err := msgReconstructor.FinishMsgPacketSequence()
 			if err != nil {
 				logger.Warnf("Failed to finish packet sequence: %v", err)
-				return
 			}
+
+			reconstruction.ClearMsgReconstructor(srcAddr)
 
 			fmt.Printf("MSG %v: %s\n", srcAddr, completeMsg)
 			return
